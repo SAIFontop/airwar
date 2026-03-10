@@ -123,7 +123,7 @@ export default function SetupPage() {
 
     const canNext = () => {
         switch (currentStep) {
-            case 0: return scanResults && scanResults.length > 0 && selectedPath;
+            case 0: return !!selectedPath;
             case 1: return cfgParsed;
             case 2: return portResults;
             case 3: return bridgeResult;
