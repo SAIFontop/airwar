@@ -1,0 +1,38 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "4800:4800"
+    volumes:
+      - saifcontrol_data:/data
+    environment:
+      - NODE_ENV=production
+      - SAIFCONTROL_DATA_DIR=/data
+      - SAIFCONTROL_API_PORT=4800
+      - SAIFCONTROL_CORS_ORIGIN=http://localhost:3000
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "node", "-e", "fetch('http://localhost:4800/healthz').then(r=>{if(!r.ok)throw 1})" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  saifcontrol_data:
