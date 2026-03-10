@@ -1,178 +1,305 @@
-const API_BASE = '/api';
+type ApiResponse<T = unknown> = {
+    success: boolean;
+    data?: T;
+    error?: string;
+    ok?: boolean;
+};
 
-interface FetchOptions extends RequestInit {
-    token?: string;
-}
+class ApiClient {
+    private accessToken: string | null = null;
+    private refreshTokenValue: string | null = null;
+    private onUnauthorized?: () => void;
 
-async function request<T>(path: string, opts: FetchOptions = {}): Promise<T> {
-    const { token, headers: extraHeaders, ...rest } = opts;
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...((extraHeaders as Record<string, string>) || {}),
-    };
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+    setTokens(access: string, refresh: string) {
+        this.accessToken = access;
+        this.refreshTokenValue = refresh;
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('sc_access', access);
+            localStorage.setItem('sc_refresh', refresh);
+        }
     }
 
-    const res = await fetch(`${API_BASE}${path}`, { headers, ...rest });
-    const json = await res.json();
-
-    if (!res.ok) {
-        throw new ApiError(json.error || res.statusText, res.status, json);
+    loadTokens() {
+        if (typeof window !== 'undefined') {
+            this.accessToken = localStorage.getItem('sc_access');
+            this.refreshTokenValue = localStorage.getItem('sc_refresh');
+        }
     }
 
-    return json as T;
-}
+    clearTokens() {
+        this.accessToken = null;
+        this.refreshTokenValue = null;
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('sc_access');
+            localStorage.removeItem('sc_refresh');
+        }
+    }
 
-export class ApiError extends Error {
-    constructor(
-        message: string,
-        public status: number,
-        public body?: unknown,
-    ) {
-        super(message);
-        this.name = 'ApiError';
+    getAccessToken() {
+        return this.accessToken;
+    }
+
+    setOnUnauthorized(fn: () => void) {
+        this.onUnauthorized = fn;
+    }
+
+    private async request<T>(
+        method: string,
+        path: string,
+        body?: unknown,
+        skipAuth = false,
+    ): Promise<ApiResponse<T>> {
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+        if (!skipAuth && this.accessToken) {
+            headers['Authorization'] = `Bearer ${this.accessToken}`;
+        }
+
+        try {
+            let res = await fetch(path, {
+                method,
+                headers,
+                body: body ? JSON.stringify(body) : undefined,
+            });
+
+            if (res.status === 401 && !skipAuth && this.refreshTokenValue) {
+                const refreshed = await this.tryRefresh();
+                if (refreshed) {
+                    headers['Authorization'] = `Bearer ${this.accessToken}`;
+                    res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+                } else {
+                    this.clearTokens();
+                    this.onUnauthorized?.();
+                    return { success: false, error: 'انتهت الجلسة' };
+                }
+            }
+
+            if (res.status === 401) {
+                this.clearTokens();
+                this.onUnauthorized?.();
+                return { success: false, error: 'غير مصرح' };
+            }
+
+            return await res.json();
+        } catch (err) {
+            return { success: false, error: err instanceof Error ? err.message : 'خطأ في الاتصال' };
+        }
+    }
+
+    private async tryRefresh(): Promise<boolean> {
+        if (!this.refreshTokenValue || !this.accessToken) return false;
+        try {
+            const res = await fetch('/api/auth/refresh', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.accessToken}`,
+                },
+                body: JSON.stringify({ refreshToken: this.refreshTokenValue }),
+            });
+            const data = await res.json();
+            if (data.success && data.data?.accessToken) {
+                this.accessToken = data.data.accessToken;
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('sc_access', this.accessToken!);
+                }
+                return true;
+            }
+        } catch { /* ignore */ }
+        return false;
+    }
+
+    // ─── Auth ───
+    async login(username: string, password: string, totpCode?: string) {
+        return this.request<{ accessToken: string; refreshToken: string; user: Record<string, unknown> }>(
+            'POST', '/api/auth/login', { username, password, totpCode }, true,
+        );
+    }
+
+    async getMe() {
+        return this.request<{ sub: string; role: string; username: string }>('GET', '/api/auth/me');
+    }
+
+    async logout() {
+        const result = await this.request('POST', '/api/auth/logout', { refreshToken: this.refreshTokenValue });
+        this.clearTokens();
+        return result;
+    }
+
+    async setup2FA() {
+        return this.request<{ secret: string; otpauth: string; qrCode?: string }>('POST', '/api/auth/2fa/setup');
+    }
+
+    async confirm2FA(code: string) {
+        return this.request<{ success: boolean }>('POST', '/api/auth/2fa/confirm', { code });
+    }
+
+    // ─── Setup ───
+    async getSetupStatus() {
+        return this.request<{ setupCompleted: boolean; currentStep: number }>('GET', '/api/setup/status');
+    }
+
+    async scanForServer() {
+        return this.request<{ candidates: Array<{ binariesPath: string; serverDataPath: string | null; confidence: number; details: string }> }>('POST', '/api/setup/scan');
+    }
+
+    async validatePaths(binariesPath: string, serverDataPath: string) {
+        return this.request<{ binariesChecks: Check[]; dataChecks: Check[] }>('POST', '/api/setup/validate-paths', { binariesPath, serverDataPath });
+    }
+
+    async analyzeCfg(serverDataPath: string) {
+        return this.request<{ parsed: Record<string, unknown>; checks: Check[] }>('POST', '/api/setup/analyze-cfg', { serverDataPath });
+    }
+
+    async checkPorts(port: number) {
+        return this.request<{ checks: Check[] }>('POST', '/api/setup/check-ports', { port });
+    }
+
+    async detectTxAdmin(serverDataPath: string) {
+        return this.request<{ detected: boolean; txDataPath: string | null; txAdminPort: number | null; details: string[] }>('POST', '/api/setup/detect-txadmin', { serverDataPath });
+    }
+
+    async testInfoJson(port: number) {
+        return this.request<{ status: string; message: string; serverInfo?: Record<string, unknown> }>('POST', '/api/setup/test-info-json', { port });
+    }
+
+    async installBridge(serverDataPath: string) {
+        return this.request<{ checks: Check[]; bridgeToken: string }>('POST', '/api/setup/install-bridge', { serverDataPath });
+    }
+
+    async autoFix(fixId: string, serverDataPath: string, binariesPath?: string) {
+        return this.request<{ results: Check[] }>('POST', '/api/setup/auto-fix', { fixId, serverDataPath, binariesPath });
+    }
+
+    async saveProfile(data: Record<string, unknown>) {
+        return this.request<{ profile: Record<string, unknown> }>('POST', '/api/setup/save-profile', data);
+    }
+
+    async completeSetup(username: string, password: string) {
+        return this.request<{ user: Record<string, unknown> }>('POST', '/api/setup/complete', { username, password });
+    }
+
+    // ─── Server ───
+    async getServerStatus() {
+        return this.request<{ status: string; info: Record<string, unknown> | null }>('GET', '/api/server/status');
+    }
+
+    async startServer() {
+        return this.request<{ status: string }>('POST', '/api/server/start');
+    }
+
+    async stopServer() {
+        return this.request<{ status: string }>('POST', '/api/server/stop');
+    }
+
+    async restartServer() {
+        return this.request<{ status: string }>('POST', '/api/server/restart');
+    }
+
+    async sendCommand(command: string) {
+        return this.request<{ success: boolean; data?: Record<string, unknown> }>('POST', '/api/server/command', { command });
+    }
+
+    async getConsole() {
+        return this.request<{ lines: string[] }>('GET', '/api/server/console');
+    }
+
+    // ─── Metrics ───
+    async getMetrics() {
+        return this.request<{
+            cpuPercent: number;
+            memoryUsedMb: number;
+            memoryTotalMb: number;
+            diskUsedGb: number;
+            diskTotalGb: number;
+            networkRxBytes: number;
+            networkTxBytes: number;
+            uptime: number;
+        }>('GET', '/api/metrics');
+    }
+
+    // ─── Players ───
+    async getPlayers() {
+        return this.request<Array<{ id: number; name: string; identifiers: string[]; ping: number }>>('GET', '/api/players');
+    }
+
+    async kickPlayer(playerId: number, reason?: string) {
+        return this.request<{ success: boolean }>('POST', '/api/players/kick', { playerId, reason });
+    }
+
+    // ─── Resources ───
+    async getResources() {
+        return this.request<Array<{ name: string; status: string; description?: string; version?: string; author?: string }>>('GET', '/api/resources');
+    }
+
+    async resourceAction(name: string, action: 'start' | 'stop' | 'ensure' | 'restart') {
+        return this.request<{ success: boolean }>('POST', '/api/resources/action', { name, action });
+    }
+
+    // ─── Backups ───
+    async getBackups() {
+        return this.request<Array<{ id: string; profileId: string; filename: string; size: number; type: string; createdAt: string }>>('GET', '/api/backups');
+    }
+
+    async createBackup() {
+        return this.request<{ id: string; filename: string; size: number; type: string; createdAt: string }>('POST', '/api/backups/create');
+    }
+
+    async restoreBackup(backupId: string) {
+        return this.request<{ success: boolean }>('POST', '/api/backups/restore', { backupId });
+    }
+
+    async deleteBackup(backupId: string) {
+        return this.request<{ success: boolean }>('DELETE', `/api/backups/${backupId}`);
+    }
+
+    // ─── Automation ───
+    async getAutomationRules() {
+        return this.request<Array<Record<string, unknown>>>('GET', '/api/automation/rules');
+    }
+
+    async upsertAutomationRule(rule: Record<string, unknown>) {
+        return this.request<Record<string, unknown>>('POST', '/api/automation/rules', rule);
+    }
+
+    async deleteAutomationRule(ruleId: string) {
+        return this.request<{ success: boolean }>('DELETE', `/api/automation/rules/${ruleId}`);
+    }
+
+    // ─── Audit ───
+    async getAuditLog(limit = 200) {
+        return this.request<Array<{ timestamp: string; userId: string | null; action: string; details?: Record<string, unknown>; ip?: string }>>('GET', `/api/audit?limit=${limit}`);
+    }
+
+    // ─── Users ───
+    async getUsers() {
+        return this.request<Array<Record<string, unknown>>>('GET', '/api/users');
+    }
+
+    // ─── Profiles ───
+    async getProfiles() {
+        return this.request<{ activeProfileId: string | null; profiles: Array<Record<string, unknown>> }>('GET', '/api/profiles');
+    }
+
+    // ─── Plugins ───
+    async getPlugins() {
+        return this.request<Array<{ id: string; manifest: { name: string; version: string; description?: string; author?: string }; status: string; error?: string }>>('GET', '/plugins');
+    }
+
+    async discoverPlugins() {
+        return this.request<Array<Record<string, unknown>>>('POST', '/plugins/discover');
+    }
+
+    async startPlugin(id: string) {
+        return this.request<{ ok: boolean }>('POST', `/plugins/${id}/start`);
+    }
+
+    async stopPlugin(id: string) {
+        return this.request<{ ok: boolean }>('POST', `/plugins/${id}/stop`);
     }
 }
 
-// ─── Setup Wizard ───
+export type Check = { id: string; label: string; status: string; message: string; details?: string; autoFixAvailable: boolean };
 
-export const setupApi = {
-    getStatus: () => request<{ completed: boolean; currentStep: number }>('/setup/status'),
-    scan: () => request<{ results: unknown[] }>('/setup/scan', { method: 'POST' }),
-    validatePaths: (binPath: string, dataPath: string) =>
-        request('/setup/validate-paths', {
-            method: 'POST',
-            body: JSON.stringify({ binariesPath: binPath, serverDataPath: dataPath }),
-        }),
-    analyzeCfg: (cfgPath: string) =>
-        request('/setup/analyze-cfg', {
-            method: 'POST',
-            body: JSON.stringify({ cfgPath }),
-        }),
-    checkPorts: (ports: { tcp: number; udp: number }) =>
-        request('/setup/check-ports', {
-            method: 'POST',
-            body: JSON.stringify(ports),
-        }),
-    detectTxAdmin: (basePath: string) =>
-        request('/setup/detect-txadmin', {
-            method: 'POST',
-            body: JSON.stringify({ basePath }),
-        }),
-    testInfoJson: (host: string, port: number) =>
-        request('/setup/test-info-json', {
-            method: 'POST',
-            body: JSON.stringify({ host, port }),
-        }),
-    installBridge: (serverDataPath: string) =>
-        request('/setup/install-bridge', {
-            method: 'POST',
-            body: JSON.stringify({ serverDataPath }),
-        }),
-    autoFix: (fixes: string[]) =>
-        request('/setup/auto-fix', {
-            method: 'POST',
-            body: JSON.stringify({ fixes }),
-        }),
-    createSystemdUnit: (data: { binPath: string; dataPath: string; user: string }) =>
-        request('/setup/create-systemd-unit', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        }),
-    saveProfile: (profile: { name: string; binariesPath: string; serverDataPath: string; cfgPath: string; managementMode: string }) =>
-        request('/setup/save-profile', {
-            method: 'POST',
-            body: JSON.stringify(profile),
-        }),
-    complete: () => request('/setup/complete', { method: 'POST' }),
-};
-
-// ─── Auth ───
-
-export const authApi = {
-    login: (username: string, password: string, totp?: string) =>
-        request<{ accessToken: string; refreshToken: string }>('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ username, password, totp }),
-        }),
-    refresh: (refreshToken: string) =>
-        request<{ accessToken: string }>('/auth/refresh', {
-            method: 'POST',
-            body: JSON.stringify({ refreshToken }),
-        }),
-    me: (token: string) =>
-        request<{ id: string; username: string; role: string }>('/auth/me', { token }),
-    logout: (token: string) =>
-        request('/auth/logout', { method: 'POST', token }),
-};
-
-// ─── Dashboard (requires token) ───
-
-export const serverApi = {
-    status: (token: string) =>
-        request<{ status: string; info: unknown }>('/server/status', { token }),
-    start: (token: string) =>
-        request('/server/start', { method: 'POST', token }),
-    stop: (token: string) =>
-        request('/server/stop', { method: 'POST', token }),
-    restart: (token: string) =>
-        request('/server/restart', { method: 'POST', token }),
-    command: (token: string, cmd: string) =>
-        request('/server/command', { method: 'POST', token, body: JSON.stringify({ command: cmd }) }),
-};
-
-export const metricsApi = {
-    get: (token: string) => request<unknown>('/metrics/system', { token }),
-};
-
-export const playersApi = {
-    list: (token: string) => request<unknown[]>('/players', { token }),
-    kick: (token: string, playerId: number, reason?: string) =>
-        request('/players/kick', { method: 'POST', token, body: JSON.stringify({ playerId, reason }) }),
-};
-
-export const resourcesApi = {
-    list: (token: string) => request<unknown[]>('/resources', { token }),
-    action: (token: string, name: string, action: 'start' | 'stop' | 'restart') =>
-        request('/resources/action', { method: 'POST', token, body: JSON.stringify({ name, action }) }),
-};
-
-export const backupsApi = {
-    list: (token: string) => request<unknown[]>('/backups', { token }),
-    create: (token: string, label?: string) =>
-        request('/backups', { method: 'POST', token, body: JSON.stringify({ label }) }),
-    restore: (token: string, id: string) =>
-        request(`/backups/${encodeURIComponent(id)}/restore`, { method: 'POST', token }),
-    remove: (token: string, id: string) =>
-        request(`/backups/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
-};
-
-export const automationApi = {
-    list: (token: string) => request<unknown[]>('/automation', { token }),
-    create: (token: string, rule: unknown) =>
-        request('/automation', { method: 'POST', token, body: JSON.stringify(rule) }),
-    update: (token: string, id: string, rule: unknown) =>
-        request(`/automation/${encodeURIComponent(id)}`, { method: 'PUT', token, body: JSON.stringify(rule) }),
-    remove: (token: string, id: string) =>
-        request(`/automation/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
-};
-
-export const auditApi = {
-    list: (token: string, limit = 50) =>
-        request<unknown[]>(`/audit?limit=${limit}`, { token }),
-};
-
-export const usersApi = {
-    list: (token: string) => request<unknown[]>('/users', { token }),
-};
-
-// ─── Plugins ───
-
-export const pluginsApi = {
-    list: (token: string) => request<{ ok: boolean; data: unknown[] }>('/plugins', { token }),
-    discover: (token: string) => request<{ ok: boolean; data: unknown[] }>('/plugins/discover', { method: 'POST', token }),
-    get: (id: string, token: string) => request<{ ok: boolean; data: unknown }>(`/plugins/${encodeURIComponent(id)}`, { token }),
-    start: (id: string, token: string) => request<{ ok: boolean }>(`/plugins/${encodeURIComponent(id)}/start`, { method: 'POST', token }),
-    stop: (id: string, token: string) => request<{ ok: boolean }>(`/plugins/${encodeURIComponent(id)}/stop`, { method: 'POST', token }),
-};
+export const api = new ApiClient();
