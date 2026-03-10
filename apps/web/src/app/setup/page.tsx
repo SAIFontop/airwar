@@ -37,6 +37,7 @@ export default function SetupPage() {
     const [error, setError] = useState('');
     const [scanResults, setScanResults] = useState<Record<string, unknown>[] | null>(null);
     const [selectedPath, setSelectedPath] = useState('');
+    const [binariesPath, setBinariesPath] = useState('');
     const [cfgParsed, setCfgParsed] = useState<Record<string, unknown> | null>(null);
     const [portResults, setPortResults] = useState<Record<string, unknown> | null>(null);
     const [bridgeResult, setBridgeResult] = useState<Record<string, unknown> | null>(null);
@@ -63,6 +64,7 @@ export default function SetupPage() {
             setScanResults(res.data.candidates || []);
             if (res.data.candidates?.length === 1) {
                 setSelectedPath(res.data.candidates[0].serverDataPath || '');
+                setBinariesPath(res.data.candidates[0].binariesPath || '');
             }
         } else throw new Error(res.error || 'Scan failed');
     });
@@ -110,6 +112,7 @@ export default function SetupPage() {
 
         const saveRes = await api.saveProfile({
             name: profileName,
+            binariesPath: binariesPath || selectedPath,
             serverDataPath: selectedPath,
             mode: 'process',
         });
@@ -202,7 +205,7 @@ export default function SetupPage() {
                                         scanResults.map((inst, i) => (
                                             <button
                                                 key={i}
-                                                onClick={() => setSelectedPath(String(inst.serverDataPath || inst.path || ''))}
+                                                onClick={() => { setSelectedPath(String(inst.serverDataPath || inst.path || '')); setBinariesPath(String(inst.binariesPath || '')); }}
                                                 className={`w-full text-left p-4 rounded-xl border transition ${selectedPath === String(inst.serverDataPath || inst.path || '')
                                                     ? 'border-primary bg-primary/10'
                                                     : 'border-border hover:border-primary/50 bg-white/5'

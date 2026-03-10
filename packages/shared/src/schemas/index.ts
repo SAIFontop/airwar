@@ -13,7 +13,7 @@ export const StateSchema = z.object({
 export const ServerProfileSchema = z.object({
     id: z.string().uuid(),
     name: z.string().min(1).max(100),
-    fxServerBinariesPath: z.string().min(1),
+    fxServerBinariesPath: z.string(),
     serverDataPath: z.string().min(1),
     managementMode: z.enum(['systemd', 'process']),
     systemdUnit: z.string().optional(),
