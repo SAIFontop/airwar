@@ -211,6 +211,44 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
         if (!profile) return { success: true, data: [] };
 
         const resources = await scanResources(profile.serverDataPath);
+
+        // Try to get live resource states from panel_bridge
+        const manager = getServerManager(profile);
+        const liveResources = await manager.getResourcesViaBridge();
+
+        if (liveResources) {
+            const stateMap = new Map(liveResources.map(r => [r.name, r.state]));
+            for (const res of resources) {
+                // Resource names in bridge don't have the [category]/ prefix
+                const baseName = res.name.includes('/') ? res.name.split('/').pop()! : res.name;
+                const state = stateMap.get(baseName) || stateMap.get(res.name);
+                if (state) {
+                    res.status = state === 'started' ? 'started' : state === 'stopped' ? 'stopped' : 'unknown';
+                }
+            }
+        } else {
+            // Fallback: check server.cfg for ensure/start lines
+            try {
+                const cfgPath = join(profile.serverDataPath, 'server.cfg');
+                if (existsSync(cfgPath)) {
+                    const cfg = await readFile(cfgPath, 'utf-8');
+                    const ensured = new Set<string>();
+                    for (const line of cfg.split('\n')) {
+                        const match = line.trim().match(/^(?:ensure|start)\s+(\S+)/);
+                        if (match) ensured.add(match[1]);
+                    }
+                    for (const res of resources) {
+                        const baseName = res.name.includes('/') ? res.name.split('/').pop()! : res.name;
+                        if (ensured.has(baseName) || ensured.has(res.name)) {
+                            res.status = 'started';
+                        } else {
+                            res.status = 'stopped';
+                        }
+                    }
+                }
+            } catch { /* ignore cfg read errors */ }
+        }
+
         return { success: true, data: resources };
     });
 

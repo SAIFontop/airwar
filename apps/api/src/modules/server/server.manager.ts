@@ -139,6 +139,30 @@ export class ServerManager extends EventEmitter {
         }
     }
 
+    /** Get resources with live state via panel_bridge */
+    async getResourcesViaBridge(): Promise<Array<{ name: string; state: string }> | null> {
+        if (!this.profile.panelBridgeInstalled || !this.profile.panelBridgeToken) {
+            return null;
+        }
+
+        const port = this.profile.port || 30120;
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+
+            const res = await fetch(`http://127.0.0.1:${port}/panel_bridge/resources`, {
+                headers: { Authorization: `Bearer ${this.profile.panelBridgeToken}` },
+                signal: controller.signal,
+            });
+            clearTimeout(timeout);
+
+            if (!res.ok) return null;
+            return await res.json() as Array<{ name: string; state: string }>;
+        } catch {
+            return null;
+        }
+    }
+
     /** Execute server command via panel_bridge */
     async executeViaBridge(command: string): Promise<{ success: boolean; output?: string }> {
         if (!this.profile.panelBridgeInstalled || !this.profile.panelBridgeToken) {

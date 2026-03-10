@@ -3,7 +3,7 @@
 import { useAcknowledgeAlert, useAcknowledgeAllAlerts, useAlerts, useClearAlerts } from '@/lib/hooks';
 import { useWsStore } from '@/lib/store';
 import { cn, formatTimeAgo } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, Bell, Check, CheckCheck, CheckCircle2, Clock, Trash2, XCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 

@@ -2,8 +2,8 @@
 
 import { useBans, useCreateBan, useDeleteBan, useKickPlayer, usePlayers } from '@/lib/hooks';
 import { cn, formatDuration, getPingColor } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Ban, Clock, Gavel, Search, Shield, ShieldOff, Trash2, Users, UserX, Wifi } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Ban, Clock, Gavel, Search, Shield, ShieldOff, Users, UserX, Wifi } from 'lucide-react';
 import { useState } from 'react';
 
 type TabId = 'online' | 'bans';
@@ -45,7 +45,7 @@ export default function PlayersPage() {
         if (!banDialog) return;
         const duration = banDuration === 'permanent' ? undefined :
             banDuration === 'custom' ? Number(customDuration) :
-            Number(banDuration);
+                Number(banDuration);
         createBan.mutate({
             playerName: banDialog.playerName,
             identifiers: banDialog.identifiers,

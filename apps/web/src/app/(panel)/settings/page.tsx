@@ -4,7 +4,7 @@ import { api } from '@/lib/api';
 import { useCreateUser, useDeleteUser, useProfiles, useSaveWebhooks, useSwitchProfile, useTestWebhook, useUsers, useWebhooks } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Bell, CheckCircle2, Globe, Key, Loader2, Plus, Settings, Shield, Trash2, User, UserPlus, Webhook } from 'lucide-react';
 import { useState } from 'react';
 
