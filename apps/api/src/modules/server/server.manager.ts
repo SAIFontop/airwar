@@ -171,11 +171,30 @@ export class ServerManager extends EventEmitter {
 
     // ─── Process Mode ───
 
-    private async startProcess(): Promise<void> {
-        const runShPath = join(this.profile.fxServerBinariesPath, 'run.sh');
-        if (!existsSync(runShPath)) {
-            throw new Error(`run.sh not found at ${runShPath}`);
+    private findRunSh(): string {
+        // Check configured binaries path first
+        if (this.profile.fxServerBinariesPath) {
+            const direct = join(this.profile.fxServerBinariesPath, 'run.sh');
+            if (existsSync(direct)) return direct;
         }
+
+        // Search upward from serverDataPath for run.sh
+        let dir = this.profile.serverDataPath;
+        for (let i = 0; i < 5; i++) {
+            const candidate = join(dir, 'run.sh');
+            if (existsSync(candidate)) return candidate;
+            const parent = join(dir, '..');
+            if (parent === dir) break;
+            dir = parent;
+        }
+
+        throw new Error(
+            `run.sh not found. Checked: ${this.profile.fxServerBinariesPath}/run.sh and parent directories of ${this.profile.serverDataPath}`,
+        );
+    }
+
+    private async startProcess(): Promise<void> {
+        const runShPath = this.findRunSh();
 
         this.setStatus('starting');
 
