@@ -4,11 +4,11 @@ dotenv.config();
 import { collectFxMetrics, collectSystemMetrics } from './collectors';
 import { AgentSocket } from './socket';
 
-const API_URL = process.env.API_URL || 'ws://localhost:3001/ws';
+const API_URL = process.env.API_URL || 'ws://localhost:4000/ws';
 const AGENT_TOKEN = process.env.AGENT_TOKEN || 'changeme';
 const SERVER_ID = process.env.SERVER_ID || 'server-1';
 const COLLECT_INTERVAL = parseInt(process.env.COLLECT_INTERVAL_MS || '5000', 10);
-const FX_SERVER_PATH = process.env.FX_SERVER_PATH || '/home/fivem/server-data';
+const FX_SERVER_PATH = process.env.FX_SERVER_PATH || '/home/saif/fivem/txData';
 
 console.log('========================================');
 console.log('  Saif Control — Server Agent');
