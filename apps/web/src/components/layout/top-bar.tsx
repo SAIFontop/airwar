@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
 import { useAlertStore, useServerStore, useUIStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import { Bell, Command, Search } from 'lucide-react';
+import { useMemo } from 'react';
 
 export function TopBar() {
     const { setCommandPaletteOpen } = useUIStore();

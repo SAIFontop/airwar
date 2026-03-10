@@ -4,13 +4,6 @@ import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 
 @ObjectType()
-export class AuthPayload {
-    @Field() accessToken!: string;
-    @Field() refreshToken!: string;
-    @Field(() => UserPayload, { nullable: true }) user?: UserPayload;
-}
-
-@ObjectType()
 export class UserPayload {
     @Field() id!: string;
     @Field() username!: string;
@@ -19,6 +12,13 @@ export class UserPayload {
     @Field({ nullable: true }) avatar?: string;
     @Field() mfaEnabled!: boolean;
     @Field(() => [String]) permissions!: string[];
+}
+
+@ObjectType()
+export class AuthPayload {
+    @Field() accessToken!: string;
+    @Field() refreshToken!: string;
+    @Field(() => UserPayload, { nullable: true }) user?: UserPayload;
 }
 
 @InputType()
