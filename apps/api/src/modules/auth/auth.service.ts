@@ -220,3 +220,19 @@ export async function getUsers(): Promise<Omit<User, 'passwordHash' | 'twoFactor
 
     return usersData.users.map(({ passwordHash, twoFactorSecret, ...rest }) => rest);
 }
+
+/**
+ * Delete user by ID.
+ */
+export async function deleteUser(userId: string): Promise<void> {
+    const store = getStore();
+    await store.update(STORAGE_FILES.USERS, UsersSchema, (data) => {
+        const idx = data.users.findIndex((u) => u.id === userId);
+        if (idx === -1) throw new Error('المستخدم غير موجود');
+        if (data.users[idx].role === 'owner') throw new Error('لا يمكن حذف المالك');
+        data.users.splice(idx, 1);
+        data.updatedAt = now();
+        return data;
+    });
+    writeAudit({ userId, action: 'user.delete' });
+}

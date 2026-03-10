@@ -15,6 +15,9 @@ export const STORAGE_FILES = {
     AUTOMATION: 'automation.rules.json',
     BACKUPS: 'backups.json',
     SECRETS: 'secrets.enc.json',
+    BANS: 'bans.json',
+    WEBHOOKS: 'webhooks.json',
+    ALERTS: 'alerts.json',
 } as const;
 
 // ─── إصدارات المخططات ───

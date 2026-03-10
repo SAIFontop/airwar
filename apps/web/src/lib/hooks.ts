@@ -220,6 +220,149 @@ export function useUsers() {
     });
 }
 
+export function useCreateUser() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (args: { username: string; password: string; role: string }) =>
+            api.createUser(args.username, args.password, args.role),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+    });
+}
+
+export function useDeleteUser() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (userId: string) => api.deleteUser(userId),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+    });
+}
+
+// ─── Bans ───
+export function useBans() {
+    return useQuery({
+        queryKey: ['bans'],
+        queryFn: async () => {
+            const res = await api.getBans();
+            if (!res.success) throw new Error(res.error);
+            return res.data || [];
+        },
+    });
+}
+
+export function useCreateBan() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (data: { playerName: string; identifiers: string[]; reason: string; duration?: number }) =>
+            api.createBan(data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['bans'] });
+            qc.invalidateQueries({ queryKey: ['players'] });
+        },
+    });
+}
+
+export function useDeleteBan() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (banId: string) => api.deleteBan(banId),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['bans'] }),
+    });
+}
+
+// ─── Server Config ───
+export function useServerConfig() {
+    return useQuery({
+        queryKey: ['server-config'],
+        queryFn: async () => {
+            const res = await api.getServerConfig();
+            if (!res.success) throw new Error(res.error);
+            return res.data!;
+        },
+        enabled: false, // load on demand
+    });
+}
+
+export function useSaveServerConfig() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (content: string) => api.saveServerConfig(content),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['server-config'] }),
+    });
+}
+
+// ─── Webhooks ───
+export function useWebhooks() {
+    return useQuery({
+        queryKey: ['webhooks'],
+        queryFn: async () => {
+            const res = await api.getWebhooks();
+            if (!res.success) throw new Error(res.error);
+            return res.data!;
+        },
+    });
+}
+
+export function useSaveWebhooks() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (discord: { enabled: boolean; url: string; events: string[] }) =>
+            api.saveWebhooks(discord),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['webhooks'] }),
+    });
+}
+
+export function useTestWebhook() {
+    return useMutation({
+        mutationFn: () => api.testWebhook(),
+    });
+}
+
+// ─── Alerts ───
+export function useAlerts() {
+    return useQuery({
+        queryKey: ['alerts'],
+        queryFn: async () => {
+            const res = await api.getAlerts();
+            if (!res.success) throw new Error(res.error);
+            return res.data || [];
+        },
+        refetchInterval: 30000,
+    });
+}
+
+export function useAcknowledgeAlert() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => api.acknowledgeAlert(id),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['alerts'] }),
+    });
+}
+
+export function useAcknowledgeAllAlerts() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: () => api.acknowledgeAllAlerts(),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['alerts'] }),
+    });
+}
+
+export function useClearAlerts() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: () => api.clearAlerts(),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['alerts'] }),
+    });
+}
+
+// ─── Profile Switching ───
+export function useSwitchProfile() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (profileId: string) => api.switchProfile(profileId),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
+    });
+}
+
 // ─── Setup ───
 export function useSetupStatus() {
     return useQuery({

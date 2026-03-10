@@ -132,8 +132,8 @@ class ApiClient {
         return this.request<{ secret: string; otpauth: string; qrCode?: string }>('POST', '/api/auth/2fa/setup');
     }
 
-    async confirm2FA(code: string) {
-        return this.request<{ success: boolean }>('POST', '/api/auth/2fa/confirm', { code });
+    async confirm2FA(secret: string, code: string) {
+        return this.request<{ success: boolean }>('POST', '/api/auth/2fa/confirm', { secret, code });
     }
 
     // ─── Setup ───
@@ -298,6 +298,72 @@ class ApiClient {
 
     async stopPlugin(id: string) {
         return this.request<{ ok: boolean }>('POST', `/plugins/${id}/stop`);
+    }
+
+    // ─── Bans ───
+    async getBans() {
+        return this.request<Array<{ id: string; playerName: string; identifiers: string[]; reason: string; bannedBy: string; expiresAt: string | null; createdAt: string }>>('GET', '/api/bans');
+    }
+
+    async createBan(data: { playerName: string; identifiers: string[]; reason: string; duration?: number }) {
+        return this.request<{ id: string; playerName: string; identifiers: string[]; reason: string; bannedBy: string; expiresAt: string | null; createdAt: string }>('POST', '/api/bans', data);
+    }
+
+    async deleteBan(banId: string) {
+        return this.request<{ success: boolean }>('DELETE', `/api/bans/${banId}`);
+    }
+
+    // ─── Server Config ───
+    async getServerConfig() {
+        return this.request<{ content: string }>('GET', '/api/server/config');
+    }
+
+    async saveServerConfig(content: string) {
+        return this.request<{ success: boolean }>('POST', '/api/server/config', { content });
+    }
+
+    // ─── Webhooks ───
+    async getWebhooks() {
+        return this.request<{ discord: { enabled: boolean; url: string; events: string[] } }>('GET', '/api/webhooks');
+    }
+
+    async saveWebhooks(discord: { enabled: boolean; url: string; events: string[] }) {
+        return this.request<{ success: boolean }>('POST', '/api/webhooks', { discord });
+    }
+
+    async testWebhook() {
+        return this.request<{ success: boolean }>('POST', '/api/webhooks/test');
+    }
+
+    // ─── Alerts ───
+    async getAlerts() {
+        return this.request<Array<{ id: string; type: string; severity: string; title: string; message: string; acknowledged: boolean; createdAt: string }>>('GET', '/api/alerts');
+    }
+
+    async acknowledgeAlert(id: string) {
+        return this.request<{ success: boolean }>('POST', '/api/alerts/acknowledge', { id });
+    }
+
+    async acknowledgeAllAlerts() {
+        return this.request<{ success: boolean }>('POST', '/api/alerts/acknowledge-all');
+    }
+
+    async clearAlerts() {
+        return this.request<{ success: boolean }>('DELETE', '/api/alerts/clear');
+    }
+
+    // ─── User Management ───
+    async createUser(username: string, password: string, role: string) {
+        return this.request<{ id: string; username: string; role: string }>('POST', '/api/users', { username, password, role });
+    }
+
+    async deleteUser(userId: string) {
+        return this.request<{ success: boolean }>('DELETE', `/api/users/${userId}`);
+    }
+
+    // ─── Profile Switching ───
+    async switchProfile(profileId: string) {
+        return this.request<{ success: boolean }>('POST', '/api/profiles/switch', { profileId });
     }
 }
 

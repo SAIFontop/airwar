@@ -183,6 +183,51 @@ export const ServerCfgParsedSchema = z.object({
     rawLines: z.array(z.string()),
 });
 
+// ─── Ban System ───
+export const BanEntrySchema = z.object({
+    id: z.string().uuid(),
+    playerName: z.string(),
+    identifiers: z.array(z.string()),
+    reason: z.string(),
+    bannedBy: z.string(),
+    expiresAt: z.string().datetime().nullable(), // null = permanent
+    createdAt: z.string().datetime(),
+});
+
+export const BansSchema = z.object({
+    schemaVersion: z.number().int().positive(),
+    bans: z.array(BanEntrySchema),
+    updatedAt: z.string().datetime(),
+});
+
+// ─── Webhook Config ───
+export const WebhookConfigSchema = z.object({
+    schemaVersion: z.number().int().positive(),
+    discord: z.object({
+        enabled: z.boolean(),
+        url: z.string(),
+        events: z.array(z.string()),
+    }).optional(),
+    updatedAt: z.string().datetime(),
+});
+
+// ─── Alert History ───
+export const AlertEntrySchema = z.object({
+    id: z.string().uuid(),
+    type: z.string(),
+    title: z.string(),
+    message: z.string(),
+    severity: z.enum(['info', 'warning', 'critical']),
+    acknowledged: z.boolean(),
+    createdAt: z.string().datetime(),
+});
+
+export const AlertsSchema = z.object({
+    schemaVersion: z.number().int().positive(),
+    alerts: z.array(AlertEntrySchema),
+    updatedAt: z.string().datetime(),
+});
+
 // ─── WebSocket Events ───
 export const WsMessageSchema = z.object({
     event: z.string(),

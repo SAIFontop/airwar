@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import {
+    AlertEntrySchema,
+    AlertsSchema,
     AuditEntrySchema,
     AutomationActionSchema,
     AutomationRuleSchema,
@@ -7,6 +9,8 @@ import {
     AutomationTriggerSchema,
     BackupEntrySchema,
     BackupsSchema,
+    BanEntrySchema,
+    BansSchema,
     ProfilesSchema,
     SecretsSchema,
     ServerCfgParsedSchema,
@@ -18,6 +22,7 @@ import {
     StateSchema,
     UserSchema,
     UsersSchema,
+    WebhookConfigSchema,
     WsMessageSchema,
 } from '../schemas/index.js';
 
@@ -41,6 +46,11 @@ export type SetupCheckResult = z.infer<typeof SetupCheckResultSchema>;
 export type SetupWizardState = z.infer<typeof SetupWizardStateSchema>;
 export type ServerCfgParsed = z.infer<typeof ServerCfgParsedSchema>;
 export type WsMessage = z.infer<typeof WsMessageSchema>;
+export type BanEntry = z.infer<typeof BanEntrySchema>;
+export type Bans = z.infer<typeof BansSchema>;
+export type WebhookConfig = z.infer<typeof WebhookConfigSchema>;
+export type AlertEntry = z.infer<typeof AlertEntrySchema>;
+export type Alerts = z.infer<typeof AlertsSchema>;
 
 // ─── Additional types ───
 export type RbacRole = 'owner' | 'admin' | 'viewer';

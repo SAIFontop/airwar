@@ -1,6 +1,10 @@
 import type { AutomationRule, ServerProfile } from '@saifcontrol/shared';
-import { ProfilesSchema, STORAGE_FILES } from '@saifcontrol/shared';
+import { AlertsSchema, BansSchema, ProfilesSchema, STORAGE_FILES, WebhookConfigSchema } from '@saifcontrol/shared';
+import { randomUUID } from 'crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { existsSync } from 'fs';
+import { readFile, writeFile } from 'fs/promises';
+import { join } from 'path';
 import { readAuditLog, writeAudit } from '../../lib/audit.js';
 import { getStore } from '../../lib/store.js';
 import * as authService from '../auth/auth.service.js';
@@ -313,5 +317,257 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
         const store = getStore();
         const data = await store.read(STORAGE_FILES.PROFILES, ProfilesSchema);
         return { success: true, data };
+    });
+
+    app.post<{ Body: { profileId: string } }>(
+        '/api/profiles/switch',
+        { preHandler: requireRole('owner', 'admin') },
+        async (request) => {
+            const { profileId } = request.body;
+            const store = getStore();
+            await store.update(STORAGE_FILES.PROFILES, ProfilesSchema, (data) => {
+                const exists = data.profiles.find(p => p.id === profileId);
+                if (!exists) throw new Error('Profile not found');
+                data.activeProfileId = profileId;
+                data.updatedAt = new Date().toISOString();
+                return data;
+            });
+            writeAudit({ userId: getAuthUser(request).sub, action: 'profile.switch', details: { profileId } });
+            return { success: true };
+        },
+    );
+
+    // ═══ Ban System ═══
+
+    app.get('/api/bans', async () => {
+        const store = getStore();
+        try {
+            const data = await store.read(STORAGE_FILES.BANS, BansSchema);
+            return { success: true, data: data?.bans || [] };
+        } catch {
+            return { success: true, data: [] };
+        }
+    });
+
+    app.post<{ Body: { playerName: string; identifiers: string[]; reason: string; duration?: number } }>(
+        '/api/bans',
+        { preHandler: requireRole('owner', 'admin') },
+        async (request) => {
+            const { playerName, identifiers, reason, duration } = request.body;
+            const user = getAuthUser(request);
+            const now = new Date().toISOString();
+            const expiresAt = duration ? new Date(Date.now() + duration * 60000).toISOString() : null;
+
+            const ban = { id: randomUUID(), playerName, identifiers, reason, bannedBy: user.username, expiresAt, createdAt: now };
+
+            const store = getStore();
+            try {
+                await store.update(STORAGE_FILES.BANS, BansSchema, (data) => {
+                    data.bans.push(ban);
+                    data.updatedAt = now;
+                    return data;
+                });
+            } catch {
+                // File doesn't exist yet, create it
+                await store.writeAtomic(STORAGE_FILES.BANS, {
+                    schemaVersion: 1, bans: [ban], updatedAt: now,
+                });
+            }
+
+            // Also kick the player if online
+            const profile = await getActiveProfile();
+            if (profile) {
+                const manager = getServerManager(profile);
+                manager.sendCommand(`clientkick ${playerName} "${reason}"`);
+            }
+
+            writeAudit({ userId: user.sub, action: 'player.ban', details: { playerName, reason, duration } });
+            return { success: true, data: ban };
+        },
+    );
+
+    app.delete<{ Params: { id: string } }>(
+        '/api/bans/:id',
+        { preHandler: requireRole('owner', 'admin') },
+        async (request) => {
+            const store = getStore();
+            await store.update(STORAGE_FILES.BANS, BansSchema, (data) => {
+                data.bans = data.bans.filter(b => b.id !== request.params.id);
+                data.updatedAt = new Date().toISOString();
+                return data;
+            });
+            writeAudit({ userId: getAuthUser(request).sub, action: 'player.unban', details: { banId: request.params.id } });
+            return { success: true };
+        },
+    );
+
+    // ═══ Server Config Editor ═══
+
+    app.get('/api/server/config', async () => {
+        const profile = await getActiveProfile();
+        if (!profile) return { success: false, error: 'No active profile' };
+
+        const cfgPath = join(profile.serverDataPath, 'server.cfg');
+        if (!existsSync(cfgPath)) return { success: false, error: 'server.cfg not found' };
+
+        const content = await readFile(cfgPath, 'utf-8');
+        return { success: true, data: { content } };
+    });
+
+    app.post<{ Body: { content: string } }>(
+        '/api/server/config',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            const profile = await getActiveProfile();
+            if (!profile) return { success: false, error: 'No active profile' };
+
+            const cfgPath = join(profile.serverDataPath, 'server.cfg');
+
+            // Create backup before editing
+            const backupPath = cfgPath + '.bak.' + Date.now();
+            if (existsSync(cfgPath)) {
+                const old = await readFile(cfgPath, 'utf-8');
+                await writeFile(backupPath, old, 'utf-8');
+            }
+
+            await writeFile(cfgPath, request.body.content, 'utf-8');
+            writeAudit({ userId: getAuthUser(request).sub, action: 'config.edit' });
+            return { success: true };
+        },
+    );
+
+    // ═══ Discord Webhooks ═══
+
+    app.get('/api/webhooks', { preHandler: requireRole('owner') }, async () => {
+        const store = getStore();
+        try {
+            const data = await store.read(STORAGE_FILES.WEBHOOKS, WebhookConfigSchema);
+            return { success: true, data };
+        } catch {
+            return { success: true, data: { discord: { enabled: false, url: '', events: [] } } };
+        }
+    });
+
+    app.post<{ Body: { discord: { enabled: boolean; url: string; events: string[] } } }>(
+        '/api/webhooks',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            const now = new Date().toISOString();
+            const store = getStore();
+            const config = { schemaVersion: 1, discord: request.body.discord, updatedAt: now };
+            await store.writeAtomic(STORAGE_FILES.WEBHOOKS, config);
+            writeAudit({ userId: getAuthUser(request).sub, action: 'webhooks.update' });
+            return { success: true };
+        },
+    );
+
+    app.post('/api/webhooks/test', { preHandler: requireRole('owner') }, async () => {
+        const store = getStore();
+        try {
+            const data = await store.read(STORAGE_FILES.WEBHOOKS, WebhookConfigSchema);
+            if (!data?.discord?.enabled || !data.discord.url) {
+                return { success: false, error: 'Discord webhook not configured' };
+            }
+            await fetch(data.discord.url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    embeds: [{
+                        title: '✅ SaifControl Test',
+                        description: 'Webhook is working!',
+                        color: 0x6366F1,
+                        timestamp: new Date().toISOString(),
+                    }],
+                }),
+            });
+            return { success: true };
+        } catch (e) {
+            return { success: false, error: String(e) };
+        }
+    });
+
+    // ═══ Alerts (Persistent) ═══
+
+    app.get('/api/alerts', async () => {
+        const store = getStore();
+        try {
+            const data = await store.read(STORAGE_FILES.ALERTS, AlertsSchema);
+            return { success: true, data: data?.alerts || [] };
+        } catch {
+            return { success: true, data: [] };
+        }
+    });
+
+    app.post<{ Body: { id: string } }>(
+        '/api/alerts/acknowledge',
+        { preHandler: requireRole('owner', 'admin') },
+        async (request) => {
+            const store = getStore();
+            await store.update(STORAGE_FILES.ALERTS, AlertsSchema, (data) => {
+                const alert = data.alerts.find(a => a.id === request.body.id);
+                if (alert) alert.acknowledged = true;
+                data.updatedAt = new Date().toISOString();
+                return data;
+            });
+            return { success: true };
+        },
+    );
+
+    app.post('/api/alerts/acknowledge-all', { preHandler: requireRole('owner', 'admin') }, async () => {
+        const store = getStore();
+        try {
+            await store.update(STORAGE_FILES.ALERTS, AlertsSchema, (data) => {
+                data.alerts.forEach(a => { a.acknowledged = true; });
+                data.updatedAt = new Date().toISOString();
+                return data;
+            });
+        } catch { /* no alerts yet */ }
+        return { success: true };
+    });
+
+    app.delete('/api/alerts/clear', { preHandler: requireRole('owner') }, async () => {
+        const store = getStore();
+        const now = new Date().toISOString();
+        await store.writeAtomic(STORAGE_FILES.ALERTS, { schemaVersion: 1, alerts: [], updatedAt: now });
+        return { success: true };
+    });
+
+    // ═══ User Management ═══
+
+    app.post<{ Body: { username: string; password: string; role: string } }>(
+        '/api/users',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            const { username, password, role } = request.body;
+            if (!['admin', 'viewer'].includes(role)) return { success: false, error: 'Invalid role' };
+            const user = await authService.createUser(username, password, role as 'admin' | 'viewer');
+            writeAudit({ userId: getAuthUser(request).sub, action: 'user.create', details: { username, role } });
+            return { success: true, data: { id: user.id, username: user.username, role: user.role } };
+        },
+    );
+
+    app.delete<{ Params: { id: string } }>(
+        '/api/users/:id',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            await authService.deleteUser(request.params.id);
+            writeAudit({ userId: getAuthUser(request).sub, action: 'user.delete', details: { userId: request.params.id } });
+            return { success: true };
+        },
+    );
+
+    // ═══ 2FA Setup ═══
+
+    app.post('/api/auth/2fa/setup', async (request) => {
+        const user = getAuthUser(request);
+        const result = await authService.setup2FA(user.sub);
+        return { success: true, data: result };
+    });
+
+    app.post<{ Body: { secret: string; code: string } }>('/api/auth/2fa/confirm', async (request) => {
+        const user = getAuthUser(request);
+        const valid = await authService.confirm2FA(user.sub, request.body.secret, request.body.code);
+        if (!valid) return { success: false, error: 'Invalid verification code' };
+        return { success: true };
     });
 }
