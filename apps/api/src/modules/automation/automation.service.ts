@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -38,9 +37,9 @@ export class AutomationService {
                 description: data.description || '',
                 serverId: data.serverId,
                 triggerType: data.triggerType,
-                conditions: data.conditions as unknown as Prisma.InputJsonValue,
+                conditions: data.conditions as any,
                 cooldown: data.cooldown || 60,
-                actions: data.actions as unknown as Prisma.InputJsonValue,
+                actions: data.actions as any,
             },
         });
     }
@@ -55,11 +54,11 @@ export class AutomationService {
         actions: Array<{ type: string; params: Record<string, unknown>; order: number }>;
     }>) {
         const updateData: Record<string, unknown> = { ...data };
-        if (data.conditions) updateData.conditions = data.conditions as unknown as Prisma.InputJsonValue;
-        if (data.actions) updateData.actions = data.actions as unknown as Prisma.InputJsonValue;
+        if (data.conditions) updateData.conditions = data.conditions;
+        if (data.actions) updateData.actions = data.actions;
         return this.prisma.automationRule.update({
             where: { id },
-            data: updateData as Prisma.AutomationRuleUpdateInput,
+            data: updateData as any,
         });
     }
 

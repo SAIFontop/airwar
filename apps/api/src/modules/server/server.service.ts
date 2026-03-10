@@ -28,7 +28,7 @@ export class ServerService {
         });
 
         return Promise.all(
-            servers.map(async (server) => {
+            servers.map(async (server: any) => {
                 const metrics = await this.redis.hgetall(`server:${server.id}:metrics`);
                 return {
                     ...server,

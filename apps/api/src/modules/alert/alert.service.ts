@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -33,7 +32,7 @@ export class AlertService {
         const alert = await this.prisma.alert.create({
             data: {
                 ...data,
-                metadata: data.metadata as unknown as Prisma.InputJsonValue ?? Prisma.JsonNull,
+                metadata: data.metadata as any ?? undefined,
             },
         });
         this.events.emit('alert.created', alert);
