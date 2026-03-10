@@ -1,164 +1,121 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Badge, Button, Card, Input, Skeleton } from '@/components/ui';
 import { resourcesApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { motion } from 'framer-motion';
-import {
-    Loader2,
-    Package,
-    Play,
-    RefreshCw,
-    RotateCcw,
-    Search,
-    Square,
-} from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { Play, Puzzle, RefreshCw, RotateCcw, Search, Square } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface Resource {
     name: string;
-    state: string;
-    description?: string;
-    version?: string;
-    author?: string;
+    status: string;
 }
 
 export default function ResourcesPage() {
-    const { accessToken } = useAuthStore();
+    const token = useAuthStore((s) => s.accessToken)!;
     const [resources, setResources] = useState<Resource[]>([]);
-    const [filter, setFilter] = useState('');
     const [loading, setLoading] = useState(true);
-    const [actioning, setActioning] = useState<string | null>(null);
-    const token = accessToken || '';
+    const [search, setSearch] = useState('');
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-    const fetchResources = useCallback(async () => {
-        if (!token) return;
+    const fetchResources = async () => {
         try {
             const res = await resourcesApi.list(token);
             setResources(res as Resource[]);
         } catch { }
         setLoading(false);
-    }, [token]);
+    };
 
     useEffect(() => {
         fetchResources();
-    }, [fetchResources]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [token]);
 
-    const doAction = async (name: string, action: 'start' | 'stop' | 'restart') => {
-        setActioning(`${name}-${action}`);
+    const handleAction = async (name: string, action: 'start' | 'stop' | 'restart') => {
+        setActionLoading(`${name}-${action}`);
         try {
             await resourcesApi.action(token, name, action);
-            setTimeout(fetchResources, 1500);
+            await fetchResources();
         } catch { }
-        setActioning(null);
+        setActionLoading(null);
     };
 
     const filtered = resources.filter((r) =>
-        r.name.toLowerCase().includes(filter.toLowerCase()),
+        r.name.toLowerCase().includes(search.toLowerCase())
     );
 
-    const started = resources.filter((r) => r.state === 'started').length;
-    const stopped = resources.filter((r) => r.state === 'stopped').length;
-
-    const stateVariant = (state: string) => {
-        if (state === 'started') return 'success' as const;
-        if (state === 'stopped') return 'danger' as const;
-        return 'warning' as const;
-    };
-
-    const stateLabel = (state: string) => {
-        if (state === 'started') return 'يعمل';
-        if (state === 'stopped') return 'متوقف';
-        return state;
-    };
+    const running = resources.filter((r) => r.status === 'started' || r.status === 'running').length;
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-lg font-bold flex items-center gap-2">
-                        <Package className="h-5 w-5 text-[var(--accent-primary)]" />
-                        الريسورسات
-                    </h2>
-                    <div className="flex gap-2 mt-1">
-                        <Badge variant="success">{started} يعمل</Badge>
-                        <Badge variant="danger">{stopped} متوقف</Badge>
-                        <Badge variant="outline">{resources.length} إجمالي</Badge>
-                    </div>
+                    <h1 className="text-xl font-bold text-text-primary">Resources</h1>
+                    <p className="text-sm text-text-secondary mt-0.5">{running} running / {resources.length} total</p>
                 </div>
-                <Button size="sm" variant="outline" onClick={fetchResources}>
-                    <RefreshCw className="h-4 w-4" />
-                    تحديث
+                <Button variant="secondary" size="sm" onClick={() => { setLoading(true); fetchResources(); }}>
+                    <RefreshCw className="h-3.5 w-3.5" /> Refresh
                 </Button>
             </div>
 
-            <div className="relative">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-muted)]" />
-                <Input
-                    placeholder="بحث عن ريسورس..."
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                    className="pr-10"
-                />
-            </div>
+            <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search resources..."
+                icon={<Search className="h-4 w-4" />}
+                className="max-w-sm"
+            />
 
             {loading ? (
-                <div className="flex justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-[var(--accent-primary)]" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
                 </div>
+            ) : filtered.length === 0 ? (
+                <Card className="flex flex-col items-center justify-center py-12">
+                    <Puzzle className="h-10 w-10 text-text-muted mb-3" />
+                    <p className="text-sm text-text-secondary">{search ? 'No matching resources' : 'No resources loaded'}</p>
+                </Card>
             ) : (
-                <div className="grid gap-2">
-                    {filtered.map((res, i) => (
-                        <motion.div
-                            key={res.name}
-                            initial={{ opacity: 0, y: 5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.02 }}
-                        >
-                            <Card className="glass hover:border-[var(--border-hover)] transition-all">
-                                <CardContent className="p-4 flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-2 h-2 rounded-full ${res.state === 'started' ? 'bg-[var(--success)]' : 'bg-[var(--danger)]'
-                                            }`} />
-                                        <div>
-                                            <div className="font-medium font-mono text-sm" dir="ltr">{res.name}</div>
-                                            {res.author && (
-                                                <div className="text-xs text-[var(--text-muted)]">{res.author}</div>
-                                            )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {filtered.map((res, i) => {
+                        const isRunning = res.status === 'started' || res.status === 'running';
+                        return (
+                            <motion.div
+                                key={res.name}
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: i * 0.02 }}
+                            >
+                                <Card className="flex items-center justify-between hover:border-border-hover transition-colors">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className={`h-2 w-2 rounded-full shrink-0 ${isRunning ? 'bg-success' : 'bg-text-muted'}`} />
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium text-text-primary truncate font-mono">{res.name}</p>
+                                            <Badge variant={isRunning ? 'success' : 'default'} size="sm">{res.status}</Badge>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant={stateVariant(res.state)}>{stateLabel(res.state)}</Badge>
-                                        <Button
-                                            size="icon"
-                                            variant="ghost"
-                                            className="h-8 w-8"
-                                            onClick={() => doAction(res.name, res.state === 'started' ? 'stop' : 'start')}
-                                            disabled={actioning === `${res.name}-start` || actioning === `${res.name}-stop`}
-                                        >
-                                            {res.state === 'started' ? (
-                                                <Square className="h-3.5 w-3.5" />
-                                            ) : (
-                                                <Play className="h-3.5 w-3.5" />
-                                            )}
-                                        </Button>
-                                        <Button
-                                            size="icon"
-                                            variant="ghost"
-                                            className="h-8 w-8"
-                                            onClick={() => doAction(res.name, 'restart')}
-                                            disabled={actioning === `${res.name}-restart`}
-                                        >
-                                            <RotateCcw className="h-3.5 w-3.5" />
-                                        </Button>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        {!isRunning && (
+                                            <Button variant="ghost" size="icon" onClick={() => handleAction(res.name, 'start')} loading={actionLoading === `${res.name}-start`}>
+                                                <Play className="h-3.5 w-3.5 text-success" />
+                                            </Button>
+                                        )}
+                                        {isRunning && (
+                                            <>
+                                                <Button variant="ghost" size="icon" onClick={() => handleAction(res.name, 'restart')} loading={actionLoading === `${res.name}-restart`}>
+                                                    <RotateCcw className="h-3.5 w-3.5 text-accent" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" onClick={() => handleAction(res.name, 'stop')} loading={actionLoading === `${res.name}-stop`}>
+                                                    <Square className="h-3.5 w-3.5 text-danger" />
+                                                </Button>
+                                            </>
+                                        )}
                                     </div>
-                                </CardContent>
-                            </Card>
-                        </motion.div>
-                    ))}
+                                </Card>
+                            </motion.div>
+                        );
+                    })}
                 </div>
             )}
         </div>

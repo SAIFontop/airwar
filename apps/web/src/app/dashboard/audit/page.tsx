@@ -1,130 +1,103 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Badge, Card, Skeleton } from '@/components/ui';
 import { auditApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { motion } from 'framer-motion';
-import {
-    Clock,
-    Loader2,
-    RefreshCw,
-    ScrollText
-} from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { Clock, ScrollText, User } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface AuditEntry {
-    timestamp: string;
-    userId: string;
-    username: string;
+    id: string;
     action: string;
+    user: string;
     details?: string;
     ip?: string;
+    createdAt: string;
 }
 
 export default function AuditPage() {
-    const { accessToken } = useAuthStore();
+    const token = useAuthStore((s) => s.accessToken)!;
     const [entries, setEntries] = useState<AuditEntry[]>([]);
     const [loading, setLoading] = useState(true);
-    const token = accessToken || '';
-
-    const fetchAudit = useCallback(async () => {
-        if (!token) return;
-        try {
-            const res = await auditApi.list(token, 100);
-            setEntries(res as AuditEntry[]);
-        } catch { }
-        setLoading(false);
-    }, [token]);
 
     useEffect(() => {
-        fetchAudit();
-    }, [fetchAudit]);
+        auditApi.list(token, 100)
+            .then((res) => setEntries(res as AuditEntry[]))
+            .catch(() => { })
+            .finally(() => setLoading(false));
+    }, [token]);
 
-    const actionColor = (action: string) => {
-        if (action.includes('delete') || action.includes('kick') || action.includes('stop')) return 'danger' as const;
-        if (action.includes('create') || action.includes('start') || action.includes('login')) return 'success' as const;
-        if (action.includes('update') || action.includes('restart')) return 'warning' as const;
-        return 'info' as const;
-    };
-
-    const actionLabel = (action: string) => {
-        const map: Record<string, string> = {
-            login: 'تسجيل دخول',
-            logout: 'تسجيل خروج',
-            'server.start': 'تشغيل السيرفر',
-            'server.stop': 'إيقاف السيرفر',
-            'server.restart': 'إعادة تشغيل',
-            'server.command': 'تنفيذ أمر',
-            'backup.create': 'إنشاء نسخة',
-            'backup.restore': 'استعادة نسخة',
-            'backup.delete': 'حذف نسخة',
-            'player.kick': 'طرد لاعب',
-            'resource.action': 'إجراء ريسورس',
-        };
-        return map[action] || action;
+    const actionColors: Record<string, 'info' | 'success' | 'warning' | 'danger' | 'default'> = {
+        login: 'info',
+        logout: 'default',
+        start: 'success',
+        stop: 'danger',
+        restart: 'warning',
+        kick: 'danger',
+        backup: 'info',
+        command: 'accent' as 'default',
     };
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold flex items-center gap-2">
-                    <ScrollText className="h-5 w-5 text-[var(--accent-primary)]" />
-                    سجل العمليات
-                    <Badge variant="outline">{entries.length}</Badge>
-                </h2>
-                <Button size="sm" variant="outline" onClick={fetchAudit}>
-                    <RefreshCw className="h-4 w-4" />
-                </Button>
+        <div className="space-y-6">
+            <div>
+                <h1 className="text-xl font-bold text-text-primary">Audit Log</h1>
+                <p className="text-sm text-text-secondary mt-0.5">Activity history and security events</p>
             </div>
 
             {loading ? (
-                <div className="flex justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-[var(--accent-primary)]" />
+                <div className="space-y-2">
+                    {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
                 </div>
             ) : entries.length === 0 ? (
-                <Card className="glass">
-                    <CardContent className="text-center py-12 text-[var(--text-muted)]">
-                        لا توجد عمليات مسجلة
-                    </CardContent>
+                <Card className="flex flex-col items-center justify-center py-12">
+                    <ScrollText className="h-10 w-10 text-text-muted mb-3" />
+                    <p className="text-sm text-text-secondary">No audit entries yet</p>
                 </Card>
             ) : (
-                <div className="space-y-2">
-                    {entries.map((entry, i) => (
-                        <motion.div
-                            key={i}
-                            initial={{ opacity: 0, x: 10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: i * 0.02 }}
-                        >
-                            <Card className="glass">
-                                <CardContent className="p-3 flex items-center gap-3">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <Badge variant={actionColor(entry.action)}>
-                                                {actionLabel(entry.action)}
-                                            </Badge>
-                                            <span className="text-sm font-medium">{entry.username}</span>
-                                        </div>
-                                        {entry.details && (
-                                            <div className="text-xs text-[var(--text-muted)] mt-1 font-mono" dir="ltr">
-                                                {entry.details}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="text-xs text-[var(--text-muted)] flex flex-col items-end gap-0.5 flex-shrink-0">
-                                        <span className="flex items-center gap-1">
-                                            <Clock className="h-3 w-3" />
-                                            {new Date(entry.timestamp).toLocaleTimeString('ar-SA', { hour12: false })}
+                <div className="rounded-[var(--radius-lg)] border border-border-primary overflow-hidden">
+                    <table className="w-full">
+                        <thead>
+                            <tr className="border-b border-border-primary bg-bg-secondary">
+                                <th className="text-left text-xs font-medium text-text-muted px-4 py-3">Action</th>
+                                <th className="text-left text-xs font-medium text-text-muted px-4 py-3">User</th>
+                                <th className="text-left text-xs font-medium text-text-muted px-4 py-3">Details</th>
+                                <th className="text-left text-xs font-medium text-text-muted px-4 py-3">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border-primary">
+                            {entries.map((entry, i) => (
+                                <motion.tr
+                                    key={entry.id ?? i}
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: i * 0.015 }}
+                                    className="bg-bg-card hover:bg-bg-card-hover transition-colors"
+                                >
+                                    <td className="px-4 py-3">
+                                        <Badge variant={actionColors[entry.action] ?? 'default'} size="sm">
+                                            {entry.action}
+                                        </Badge>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <span className="flex items-center gap-1.5 text-sm text-text-primary">
+                                            <User className="h-3 w-3 text-text-muted" /> {entry.user}
                                         </span>
-                                        <span>{new Date(entry.timestamp).toLocaleDateString('ar-SA')}</span>
-                                        {entry.ip && <span className="font-mono">{entry.ip}</span>}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </motion.div>
-                    ))}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-text-secondary font-mono text-xs max-w-xs truncate">
+                                        {entry.details ?? '—'}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <span className="flex items-center gap-1.5 text-xs text-text-muted whitespace-nowrap">
+                                            <Clock className="h-3 w-3" />
+                                            {new Date(entry.createdAt).toLocaleString()}
+                                        </span>
+                                    </td>
+                                </motion.tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             )}
         </div>

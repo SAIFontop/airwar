@@ -1,16 +1,25 @@
+import { Providers } from '@/components/providers';
 import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-    title: 'SaifControl — لوحة تحكم FiveM',
-    description: 'لوحة تحكم احترافية لإدارة سيرفر FiveM',
+    title: 'SaifControl — FiveM Server Panel',
+    description: 'Enterprise-grade FiveM server management panel',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang="ar" dir="rtl" className="dark">
-            <body className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] antialiased">
-                {children}
+        <html lang="en" className="dark">
+            <head>
+                <link rel="preconnect" href="https://fonts.googleapis.com" />
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+                <link
+                    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+                    rel="stylesheet"
+                />
+            </head>
+            <body className="antialiased">
+                <Providers>{children}</Providers>
             </body>
         </html>
     );

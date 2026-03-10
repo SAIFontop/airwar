@@ -1,254 +1,185 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Badge, Button, Card, Input, Skeleton, Switch } from '@/components/ui';
 import { automationApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { motion } from 'framer-motion';
-import {
-    Clock,
-    Loader2,
-    Plus,
-    RefreshCw,
-    Trash2,
-    Zap
-} from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { Bot, Clock, Plus, RefreshCw, Trash2, Zap } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface AutomationRule {
     id: string;
     name: string;
+    type: string;
     enabled: boolean;
-    trigger: { type: string;[key: string]: unknown };
-    conditions: unknown[];
-    actions: { type: string;[key: string]: unknown }[];
+    schedule?: string;
+    action?: string;
+    createdAt: string;
 }
 
 export default function AutomationPage() {
-    const { accessToken } = useAuthStore();
+    const token = useAuthStore((s) => s.accessToken)!;
     const [rules, setRules] = useState<AutomationRule[]>([]);
     const [loading, setLoading] = useState(true);
-    const [showCreate, setShowCreate] = useState(false);
-    const token = accessToken || '';
+    const [deleting, setDeleting] = useState<string | null>(null);
 
-    const fetchRules = useCallback(async () => {
-        if (!token) return;
+    // New rule form
+    const [showForm, setShowForm] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [newType, setNewType] = useState('restart');
+    const [newSchedule, setNewSchedule] = useState('0 4 * * *');
+    const [creating, setCreating] = useState(false);
+
+    const fetchRules = async () => {
         try {
             const res = await automationApi.list(token);
             setRules(res as AutomationRule[]);
         } catch { }
         setLoading(false);
-    }, [token]);
+    };
 
     useEffect(() => {
         fetchRules();
-    }, [fetchRules]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [token]);
+
+    const createRule = async () => {
+        setCreating(true);
+        try {
+            await automationApi.create(token, {
+                name: newName,
+                type: newType,
+                schedule: newSchedule,
+                enabled: true,
+            });
+            setNewName('');
+            setShowForm(false);
+            await fetchRules();
+        } catch { }
+        setCreating(false);
+    };
 
     const toggleRule = async (rule: AutomationRule) => {
         try {
             await automationApi.update(token, rule.id, { ...rule, enabled: !rule.enabled });
-            setRules((prev) =>
-                prev.map((r) => (r.id === rule.id ? { ...r, enabled: !r.enabled } : r)),
-            );
+            await fetchRules();
         } catch { }
     };
 
     const deleteRule = async (id: string) => {
-        if (!confirm('هل أنت متأكد من حذف هذه القاعدة؟')) return;
+        setDeleting(id);
         try {
             await automationApi.remove(token, id);
-            setRules((prev) => prev.filter((r) => r.id !== id));
+            await fetchRules();
         } catch { }
-    };
-
-    const triggerLabel = (type: string) => {
-        const map: Record<string, string> = {
-            cron: 'جدول زمني',
-            cpuHigh: 'معالج مرتفع',
-            memoryHigh: 'ذاكرة ممتلئة',
-            crashDetected: 'اكتشاف كراش',
-            logMatch: 'نمط في السجل',
-            playerCountAbove: 'لاعبين فوق',
-            playerCountBelow: 'لاعبين تحت',
-        };
-        return map[type] || type;
-    };
-
-    const actionLabel = (type: string) => {
-        const map: Record<string, string> = {
-            startServer: 'تشغيل',
-            stopServer: 'إيقاف',
-            restartServer: 'إعادة تشغيل',
-            executeCommand: 'تنفيذ أمر',
-            createBackup: 'نسخة احتياطية',
-            sendAnnouncement: 'إعلان',
-            delay: 'تأخير',
-        };
-        return map[type] || type;
+        setDeleting(null);
     };
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-                <h2 className="text-lg font-bold flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-[var(--accent-primary)]" />
-                    قواعد الأتمتة
-                    <Badge variant="outline">{rules.length}</Badge>
-                </h2>
-                <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={fetchRules}>
-                        <RefreshCw className="h-4 w-4" />
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-xl font-bold text-text-primary">Automation</h1>
+                    <p className="text-sm text-text-secondary mt-0.5">Scheduled tasks and automatic actions</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button variant="secondary" size="sm" onClick={() => { setLoading(true); fetchRules(); }}>
+                        <RefreshCw className="h-3.5 w-3.5" />
                     </Button>
-                    <Button size="sm" onClick={() => setShowCreate(!showCreate)}>
-                        <Plus className="h-4 w-4" />
-                        قاعدة جديدة
+                    <Button size="sm" onClick={() => setShowForm(!showForm)}>
+                        <Plus className="h-3.5 w-3.5" /> New Rule
                     </Button>
                 </div>
             </div>
 
-            {/* Quick create */}
-            {showCreate && <QuickCreateRule token={token} onCreated={() => { setShowCreate(false); fetchRules(); }} />}
+            {showForm && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                    <Card>
+                        <h3 className="text-sm font-semibold text-text-primary mb-4">Create Automation Rule</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div>
+                                <label className="block text-xs font-medium text-text-secondary mb-1.5">Name</label>
+                                <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Daily restart" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-text-secondary mb-1.5">Type</label>
+                                <select
+                                    value={newType}
+                                    onChange={(e) => setNewType(e.target.value)}
+                                    className="flex h-10 w-full rounded-[var(--radius-md)] border border-border-primary bg-bg-input px-3 py-2 text-sm text-text-primary"
+                                >
+                                    <option value="restart">Server Restart</option>
+                                    <option value="backup">Backup</option>
+                                    <option value="command">Run Command</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-text-secondary mb-1.5">Cron Schedule</label>
+                                <Input value={newSchedule} onChange={(e) => setNewSchedule(e.target.value)} placeholder="0 4 * * *" className="font-mono" />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <Button variant="secondary" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
+                            <Button size="sm" onClick={createRule} loading={creating} disabled={!newName.trim()}>Create</Button>
+                        </div>
+                    </Card>
+                </motion.div>
+            )}
 
             {loading ? (
-                <div className="flex justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-[var(--accent-primary)]" />
+                <div className="space-y-2">
+                    {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
                 </div>
             ) : rules.length === 0 ? (
-                <Card className="glass">
-                    <CardContent className="text-center py-12 text-[var(--text-muted)]">
-                        لا توجد قواعد أتمتة. أنشئ واحدة للبدء.
-                    </CardContent>
+                <Card className="flex flex-col items-center justify-center py-12">
+                    <Bot className="h-10 w-10 text-text-muted mb-3" />
+                    <p className="text-sm text-text-secondary">No automation rules configured</p>
                 </Card>
             ) : (
-                <div className="grid gap-3">
+                <div className="space-y-2">
                     {rules.map((rule, i) => (
                         <motion.div
                             key={rule.id}
-                            initial={{ opacity: 0, y: 5 }}
+                            initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.03 }}
                         >
-                            <Card className={`glass transition-all ${rule.enabled ? 'hover:border-[var(--border-hover)]' : 'opacity-60'
-                                }`}>
-                                <CardContent className="p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3 flex-1">
-                                            <button
-                                                onClick={() => toggleRule(rule)}
-                                                className={`w-10 h-6 rounded-full transition-all relative ${rule.enabled ? 'bg-[var(--success)]' : 'bg-[var(--bg-surface)]'
-                                                    }`}
-                                            >
-                                                <div
-                                                    className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${rule.enabled ? 'left-1' : 'right-1'
-                                                        }`}
-                                                />
-                                            </button>
-                                            <div>
-                                                <div className="font-medium">{rule.name}</div>
-                                                <div className="flex gap-2 mt-1 flex-wrap">
-                                                    <Badge variant="info">
-                                                        <Clock className="h-3 w-3 mr-1" />
-                                                        {triggerLabel(rule.trigger.type)}
-                                                    </Badge>
-                                                    {rule.actions.map((a, j) => (
-                                                        <Badge key={j} variant="outline">
-                                                            {actionLabel(a.type)}
-                                                        </Badge>
-                                                    ))}
-                                                </div>
-                                            </div>
+                            <Card className="flex items-center justify-between hover:border-border-hover transition-colors">
+                                <div className="flex items-center gap-4">
+                                    <Switch checked={rule.enabled} onCheckedChange={() => toggleRule(rule)} />
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-sm font-medium text-text-primary">{rule.name}</p>
+                                            <Badge variant={rule.enabled ? 'success' : 'default'} size="sm">
+                                                {rule.enabled ? 'Active' : 'Disabled'}
+                                            </Badge>
                                         </div>
-                                        <Button
-                                            size="icon"
-                                            variant="ghost"
-                                            className="h-8 w-8 text-[var(--danger)]"
-                                            onClick={() => deleteRule(rule.id)}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                        <div className="flex items-center gap-3 mt-1">
+                                            <span className="flex items-center gap-1 text-xs text-text-muted">
+                                                <Zap className="h-3 w-3" /> {rule.type}
+                                            </span>
+                                            {rule.schedule && (
+                                                <span className="flex items-center gap-1 text-xs text-text-muted font-mono">
+                                                    <Clock className="h-3 w-3" /> {rule.schedule}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                </CardContent>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => deleteRule(rule.id)}
+                                    loading={deleting === rule.id}
+                                    className="text-danger hover:text-danger hover:bg-danger-muted"
+                                >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
                             </Card>
                         </motion.div>
                     ))}
                 </div>
             )}
         </div>
-    );
-}
-
-// Quick create form
-function QuickCreateRule({ token, onCreated }: { token: string; onCreated: () => void }) {
-    const [name, setName] = useState('');
-    const [triggerType, setTriggerType] = useState('cron');
-    const [cron, setCron] = useState('0 */6 * * *');
-    const [actionType, setActionType] = useState('restartServer');
-    const [creating, setCreating] = useState(false);
-
-    const handleCreate = async () => {
-        if (!name) return;
-        setCreating(true);
-        try {
-            await automationApi.create(token, {
-                name,
-                enabled: true,
-                trigger: triggerType === 'cron' ? { type: 'cron', expression: cron } : { type: triggerType },
-                conditions: [],
-                actions: [{ type: actionType }],
-            });
-            onCreated();
-        } catch { }
-        setCreating(false);
-    };
-
-    return (
-        <Card className="glass border-[var(--accent-primary)]/30">
-            <CardContent className="p-4 space-y-3">
-                <Input placeholder="اسم القاعدة" value={name} onChange={(e) => setName(e.target.value)} />
-                <div className="grid grid-cols-2 gap-3">
-                    <div>
-                        <label className="text-xs text-[var(--text-muted)] mb-1 block">نوع المحفز</label>
-                        <select
-                            value={triggerType}
-                            onChange={(e) => setTriggerType(e.target.value)}
-                            className="w-full h-10 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-surface)] px-3 text-sm"
-                        >
-                            <option value="cron">جدول زمني (Cron)</option>
-                            <option value="cpuHigh">معالج مرتفع</option>
-                            <option value="memoryHigh">ذاكرة ممتلئة</option>
-                            <option value="crashDetected">اكتشاف كراش</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="text-xs text-[var(--text-muted)] mb-1 block">الإجراء</label>
-                        <select
-                            value={actionType}
-                            onChange={(e) => setActionType(e.target.value)}
-                            className="w-full h-10 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-surface)] px-3 text-sm"
-                        >
-                            <option value="restartServer">إعادة تشغيل</option>
-                            <option value="startServer">تشغيل</option>
-                            <option value="stopServer">إيقاف</option>
-                            <option value="createBackup">نسخة احتياطية</option>
-                        </select>
-                    </div>
-                </div>
-                {triggerType === 'cron' && (
-                    <Input
-                        placeholder="0 */6 * * *"
-                        value={cron}
-                        onChange={(e) => setCron(e.target.value)}
-                        dir="ltr"
-                        className="font-mono"
-                    />
-                )}
-                <Button onClick={handleCreate} disabled={creating || !name} className="w-full">
-                    {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                    إنشاء القاعدة
-                </Button>
-            </CardContent>
-        </Card>
     );
 }

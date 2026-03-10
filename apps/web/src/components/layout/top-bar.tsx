@@ -1,57 +1,65 @@
 'use client';
 
-import { useAlertStore, useServerStore, useUIStore } from '@/lib/store';
+import { Button } from '@/components/ui';
+import { authApi } from '@/lib/api';
+import { useAuthStore, useUIStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
-import { Bell, Command, Search } from 'lucide-react';
-import { useMemo } from 'react';
+import { Bell, Command, LogOut, Search, User } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export function TopBar() {
-    const { setCommandPaletteOpen } = useUIStore();
-    const allAlerts = useAlertStore((s) => s.alerts);
-    const alerts = useMemo(() => allAlerts.filter((a) => !a.acknowledged), [allAlerts]);
-    const activeServerId = useServerStore((s) => s.activeServerId);
-    const servers = useServerStore((s) => s.servers);
-    const activeServer = servers.find((s) => s.id === activeServerId);
+    const router = useRouter();
+    const user = useAuthStore((s) => s.user);
+    const logout = useAuthStore((s) => s.logout);
+    const token = useAuthStore((s) => s.accessToken);
+    const collapsed = useUIStore((s) => s.sidebarCollapsed);
+    const setCommandPalette = useUIStore((s) => s.setCommandPaletteOpen);
+
+    const handleLogout = async () => {
+        if (token) {
+            try { await authApi.logout(token); } catch { }
+        }
+        logout();
+        router.push('/login');
+    };
 
     return (
-        <header className="flex items-center justify-between h-14 px-6 border-b border-border/50 bg-card/20 backdrop-blur-sm">
+        <header
+            className={cn(
+                'fixed top-0 right-0 z-30 flex h-14 items-center justify-between border-b border-border-primary bg-bg-secondary/80 backdrop-blur-md px-6 transition-all duration-300',
+                collapsed ? 'left-16' : 'left-60'
+            )}
+        >
             {/* Search trigger */}
             <button
-                onClick={() => setCommandPaletteOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-sm"
+                onClick={() => setCommandPalette(true)}
+                className="flex items-center gap-2 rounded-[var(--radius-md)] border border-border-primary bg-bg-input px-3 py-1.5 text-sm text-text-muted hover:border-border-hover transition-colors w-64"
             >
-                <Search className="w-3.5 h-3.5" />
+                <Search className="h-3.5 w-3.5" />
                 <span>Search...</span>
-                <div className="flex items-center gap-0.5 ml-4">
-                    <kbd className="kbd"><Command className="w-2.5 h-2.5" /></kbd>
-                    <kbd className="kbd">K</kbd>
-                </div>
+                <kbd className="ml-auto flex gap-0.5 items-center text-[10px] text-text-muted bg-bg-tertiary px-1.5 py-0.5 rounded">
+                    <Command className="h-2.5 w-2.5" />K
+                </kbd>
             </button>
 
-            <div className="flex items-center gap-4">
-                {/* Active server indicator */}
-                {activeServer && (
-                    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-muted/50 text-xs">
-                        <div className={cn(
-                            'w-1.5 h-1.5 rounded-full',
-                            activeServer.status === 'ONLINE' ? 'bg-green-500' : 'bg-zinc-500'
-                        )} />
-                        <span className="text-muted-foreground">{activeServer.name}</span>
+            {/* Right actions */}
+            <div className="flex items-center gap-3">
+                <Button variant="ghost" size="icon" className="relative">
+                    <Bell className="h-4 w-4" />
+                </Button>
+
+                <div className="h-6 w-px bg-border-primary" />
+
+                <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-muted text-accent">
+                        <User className="h-3.5 w-3.5" />
                     </div>
-                )}
-
-                {/* Alerts */}
-                <button className="relative p-2 rounded-md hover:bg-muted/50 transition-colors">
-                    <Bell className="w-4 h-4 text-muted-foreground" />
-                    {alerts.length > 0 && (
-                        <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />
-                    )}
-                </button>
-
-                {/* User avatar */}
-                <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center">
-                    <span className="text-xs font-medium text-primary">S</span>
+                    <span className="text-sm font-medium text-text-primary">{user?.username ?? 'Admin'}</span>
                 </div>
+
+                <Button variant="ghost" size="icon" onClick={handleLogout} className="text-text-muted hover:text-danger">
+                    <LogOut className="h-4 w-4" />
+                </Button>
             </div>
         </header>
     );

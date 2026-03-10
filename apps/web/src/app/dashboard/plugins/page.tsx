@@ -1,217 +1,145 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Badge, Button, Card, Input, Skeleton } from '@/components/ui';
 import { pluginsApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { motion } from 'framer-motion';
-import { AlertCircle, CheckCircle2, Play, Puzzle, RefreshCw, Square } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { Download, HardDrive, Play, RefreshCw, Search, Square } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
-interface PluginInfo {
+interface Plugin {
     id: string;
-    manifest: {
-        name: string;
-        version: string;
-        description?: string;
-        author?: string;
-        trusted?: boolean;
-    };
-    status: 'loaded' | 'running' | 'stopped' | 'error';
-    error?: string;
-    loadedAt?: string;
+    name: string;
+    version?: string;
+    status: string;
+    description?: string;
 }
 
-const STATUS_MAP: Record<string, { label: string; variant: 'success' | 'danger' | 'warning' | 'info' | 'default' }> = {
-    loaded: { label: 'محمّل', variant: 'info' },
-    running: { label: 'يعمل', variant: 'success' },
-    stopped: { label: 'متوقف', variant: 'default' },
-    error: { label: 'خطأ', variant: 'danger' },
-};
-
 export default function PluginsPage() {
-    const { accessToken } = useAuthStore();
-    const [plugins, setPlugins] = useState<PluginInfo[]>([]);
+    const token = useAuthStore((s) => s.accessToken)!;
+    const [plugins, setPlugins] = useState<Plugin[]>([]);
     const [loading, setLoading] = useState(true);
-    const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [search, setSearch] = useState('');
+    const [actionId, setActionId] = useState<string | null>(null);
+    const [discovering, setDiscovering] = useState(false);
 
-    const fetchPlugins = useCallback(async () => {
-        if (!accessToken) return;
+    const fetchPlugins = async () => {
         try {
-            const res = await pluginsApi.list(accessToken);
-            setPlugins(res.data as PluginInfo[]);
-        } catch {
-            /* ignore */
-        } finally {
-            setLoading(false);
-        }
-    }, [accessToken]);
+            const res = await pluginsApi.list(token);
+            setPlugins((res.data ?? []) as Plugin[]);
+        } catch { }
+        setLoading(false);
+    };
 
     useEffect(() => {
         fetchPlugins();
-    }, [fetchPlugins]);
-
-    const handleDiscover = async () => {
-        if (!accessToken) return;
-        setLoading(true);
-        try {
-            const res = await pluginsApi.discover(accessToken);
-            setPlugins(res.data as PluginInfo[]);
-        } catch {
-            /* ignore */
-        } finally {
-            setLoading(false);
-        }
-    };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [token]);
 
     const handleStart = async (id: string) => {
-        if (!accessToken) return;
-        setActionLoading(id);
+        setActionId(id);
         try {
-            await pluginsApi.start(id, accessToken);
+            await pluginsApi.start(id, token);
             await fetchPlugins();
-        } catch {
-            /* ignore */
-        } finally {
-            setActionLoading(null);
-        }
+        } catch { }
+        setActionId(null);
     };
 
     const handleStop = async (id: string) => {
-        if (!accessToken) return;
-        setActionLoading(id);
+        setActionId(id);
         try {
-            await pluginsApi.stop(id, accessToken);
+            await pluginsApi.stop(id, token);
             await fetchPlugins();
-        } catch {
-            /* ignore */
-        } finally {
-            setActionLoading(null);
-        }
+        } catch { }
+        setActionId(null);
     };
+
+    const handleDiscover = async () => {
+        setDiscovering(true);
+        try {
+            await pluginsApi.discover(token);
+            await fetchPlugins();
+        } catch { }
+        setDiscovering(false);
+    };
+
+    const filtered = plugins.filter((p) =>
+        p.name.toLowerCase().includes(search.toLowerCase())
+    );
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">الإضافات</h1>
-                    <p className="text-[var(--text-muted)] mt-1">
-                        إدارة إضافات لوحة التحكم
-                    </p>
+                    <h1 className="text-xl font-bold text-text-primary">Plugins</h1>
+                    <p className="text-sm text-text-secondary mt-0.5">{plugins.length} installed plugins</p>
                 </div>
-                <Button onClick={handleDiscover} disabled={loading}>
-                    <RefreshCw className={`h-4 w-4 ml-2 ${loading ? 'animate-spin' : ''}`} />
-                    اكتشاف الإضافات
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button variant="secondary" size="sm" onClick={handleDiscover} loading={discovering}>
+                        <Download className="h-3.5 w-3.5" /> Discover
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => { setLoading(true); fetchPlugins(); }}>
+                        <RefreshCw className="h-3.5 w-3.5" />
+                    </Button>
+                </div>
             </div>
 
-            {/* Info card */}
-            <Card className="bg-[var(--bg-secondary)] border-[var(--border-primary)]">
-                <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                        <Puzzle className="h-5 w-5 text-[var(--accent-primary)] mt-0.5" />
-                        <div>
-                            <p className="text-sm text-[var(--text-secondary)]">
-                                ضع مجلد الإضافة داخل <code className="text-[var(--accent-primary)] bg-[var(--bg-tertiary)] px-1 rounded text-xs">~/.saifcontrol/plugins/</code> مع ملف <code className="text-[var(--accent-primary)] bg-[var(--bg-tertiary)] px-1 rounded text-xs">manifest.json</code> ثم اضغط &ldquo;اكتشاف الإضافات&rdquo;.
-                            </p>
-                            <p className="text-xs text-[var(--text-muted)] mt-1">
-                                الإضافات غير الموثوقة تعمل في عملية معزولة (sandboxed).
-                            </p>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+            <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search plugins..."
+                icon={<Search className="h-4 w-4" />}
+                className="max-w-sm"
+            />
 
-            {/* Plugins list */}
             {loading ? (
-                <div className="flex justify-center py-12">
-                    <div className="h-8 w-8 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full animate-spin" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
                 </div>
-            ) : plugins.length === 0 ? (
-                <Card className="bg-[var(--bg-secondary)] border-[var(--border-primary)]">
-                    <CardContent className="p-12 text-center">
-                        <Puzzle className="h-12 w-12 text-[var(--text-muted)] mx-auto mb-4" />
-                        <p className="text-[var(--text-secondary)]">لا توجد إضافات مثبتة</p>
-                        <p className="text-sm text-[var(--text-muted)] mt-1">
-                            أضف مجلد إضافة وأعد الاكتشاف
-                        </p>
-                    </CardContent>
+            ) : filtered.length === 0 ? (
+                <Card className="flex flex-col items-center justify-center py-12">
+                    <HardDrive className="h-10 w-10 text-text-muted mb-3" />
+                    <p className="text-sm text-text-secondary">{search ? 'No matching plugins' : 'No plugins installed'}</p>
                 </Card>
             ) : (
-                <div className="grid gap-4">
-                    {plugins.map((plugin, i) => {
-                        const statusInfo = STATUS_MAP[plugin.status] || STATUS_MAP.stopped;
-                        const isRunning = plugin.status === 'running';
-
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {filtered.map((plugin, i) => {
+                        const isRunning = plugin.status === 'running' || plugin.status === 'started';
                         return (
                             <motion.div
                                 key={plugin.id}
-                                initial={{ opacity: 0, y: 10 }}
+                                initial={{ opacity: 0, y: 8 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: i * 0.05 }}
+                                transition={{ delay: i * 0.03 }}
                             >
-                                <Card className="bg-[var(--bg-secondary)] border-[var(--border-primary)]">
-                                    <CardContent className="p-4">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-4">
-                                                <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${isRunning ? 'bg-emerald-500/10' : 'bg-[var(--bg-tertiary)]'
-                                                    }`}>
-                                                    {isRunning ? (
-                                                        <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                                                    ) : plugin.status === 'error' ? (
-                                                        <AlertCircle className="h-5 w-5 text-red-400" />
-                                                    ) : (
-                                                        <Puzzle className="h-5 w-5 text-[var(--text-muted)]" />
-                                                    )}
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <h3 className="text-white font-medium">{plugin.manifest.name}</h3>
-                                                        <span className="text-xs text-[var(--text-muted)]">v{plugin.manifest.version}</span>
-                                                        {plugin.manifest.trusted && (
-                                                            <Badge variant="success">موثوق</Badge>
-                                                        )}
-                                                        <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
-                                                    </div>
-                                                    {plugin.manifest.description && (
-                                                        <p className="text-sm text-[var(--text-secondary)] mt-0.5">{plugin.manifest.description}</p>
-                                                    )}
-                                                    {plugin.manifest.author && (
-                                                        <p className="text-xs text-[var(--text-muted)] mt-0.5">المطور: {plugin.manifest.author}</p>
-                                                    )}
-                                                    {plugin.error && (
-                                                        <p className="text-xs text-red-400 mt-1">{plugin.error}</p>
-                                                    )}
-                                                </div>
-                                            </div>
-
+                                <Card className="hover:border-border-hover transition-colors">
+                                    <div className="flex items-start justify-between">
+                                        <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2">
-                                                {isRunning ? (
-                                                    <Button
-                                                        variant="destructive"
-                                                        size="sm"
-                                                        disabled={actionLoading === plugin.id}
-                                                        onClick={() => handleStop(plugin.id)}
-                                                    >
-                                                        <Square className="h-3.5 w-3.5 ml-1.5" />
-                                                        إيقاف
-                                                    </Button>
-                                                ) : (
-                                                    <Button
-                                                        variant="success"
-                                                        size="sm"
-                                                        disabled={actionLoading === plugin.id}
-                                                        onClick={() => handleStart(plugin.id)}
-                                                    >
-                                                        <Play className="h-3.5 w-3.5 ml-1.5" />
-                                                        تشغيل
-                                                    </Button>
+                                                <p className="text-sm font-semibold text-text-primary">{plugin.name}</p>
+                                                {plugin.version && (
+                                                    <Badge variant="default" size="sm">v{plugin.version}</Badge>
                                                 )}
+                                                <Badge variant={isRunning ? 'success' : 'default'} size="sm">
+                                                    {plugin.status}
+                                                </Badge>
                                             </div>
+                                            {plugin.description && (
+                                                <p className="text-xs text-text-muted mt-1 line-clamp-2">{plugin.description}</p>
+                                            )}
                                         </div>
-                                    </CardContent>
+                                        <div className="flex items-center gap-1 ml-3 shrink-0">
+                                            {isRunning ? (
+                                                <Button variant="ghost" size="icon" onClick={() => handleStop(plugin.id)} loading={actionId === plugin.id}>
+                                                    <Square className="h-3.5 w-3.5 text-danger" />
+                                                </Button>
+                                            ) : (
+                                                <Button variant="ghost" size="icon" onClick={() => handleStart(plugin.id)} loading={actionId === plugin.id}>
+                                                    <Play className="h-3.5 w-3.5 text-success" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
                                 </Card>
                             </motion.div>
                         );

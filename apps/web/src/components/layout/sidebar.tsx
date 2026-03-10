@@ -1,102 +1,102 @@
 'use client';
 
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui';
 import { useUIStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import {
-    Activity,
-    Bell,
-    ChevronLeft,
-    ChevronRight,
-    Cpu,
-    FileText,
+    Bot,
+    ChevronLeft, ChevronRight,
+    Database,
+    Gamepad2,
+    HardDrive,
     LayoutDashboard,
     Puzzle,
-    Server,
-    Settings,
-    Shield,
-    Terminal,
-    Users,
-    Zap,
+    ScrollText,
+    Settings, Shield,
+    Terminal, Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const navItems = [
-    { href: '/', icon: LayoutDashboard, label: 'Dashboard' },
-    { href: '/servers', icon: Server, label: 'Servers' },
-    { href: '/players', icon: Users, label: 'Players' },
-    { href: '/console', icon: Terminal, label: 'Console' },
-    { href: '/resources', icon: Puzzle, label: 'Resources' },
-    { href: '/metrics', icon: Activity, label: 'Metrics' },
-    { href: '/logs', icon: FileText, label: 'Logs' },
-    { href: '/automation', icon: Zap, label: 'Automation' },
-    { href: '/alerts', icon: Bell, label: 'Alerts' },
-    { href: '/files', icon: FileText, label: 'Files' },
-    { href: '/security', icon: Shield, label: 'Security' },
-    { href: '/settings', icon: Settings, label: 'Settings' },
+    { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
+    { href: '/dashboard/console', label: 'Console', icon: Terminal },
+    { href: '/dashboard/players', label: 'Players', icon: Users },
+    { href: '/dashboard/resources', label: 'Resources', icon: Puzzle },
+    { href: '/dashboard/backups', label: 'Backups', icon: Database },
+    { href: '/dashboard/automation', label: 'Automation', icon: Bot },
+    { href: '/dashboard/plugins', label: 'Plugins', icon: HardDrive },
+    { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+    { href: '/dashboard/security', label: 'Security', icon: Shield },
+    { href: '/dashboard/audit', label: 'Audit Log', icon: ScrollText },
 ];
 
 export function Sidebar() {
     const pathname = usePathname();
-    const { sidebarCollapsed, toggleSidebar } = useUIStore();
+    const collapsed = useUIStore((s) => s.sidebarCollapsed);
+    const toggle = useUIStore((s) => s.toggleSidebar);
 
     return (
-        <aside
-            className={cn(
-                'flex flex-col h-full bg-card/30 border-r border-border/50 transition-all duration-300 ease-in-out',
-                sidebarCollapsed ? 'w-16' : 'w-60',
-            )}
-        >
-            {/* Logo */}
-            <div className="flex items-center gap-3 px-4 h-14 border-b border-border/50">
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
-                    <Cpu className="w-4 h-4 text-primary" />
-                </div>
-                {!sidebarCollapsed && (
-                    <div className="flex flex-col">
-                        <span className="text-sm font-semibold tracking-tight">Saif Control</span>
-                        <span className="text-[10px] text-muted-foreground">v1.0.0</span>
-                    </div>
+        <TooltipProvider delayDuration={0}>
+            <aside
+                className={cn(
+                    'fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border-primary bg-bg-secondary transition-all duration-300',
+                    collapsed ? 'w-16' : 'w-60'
                 )}
-            </div>
-
-            {/* Navigation */}
-            <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-                {navItems.map((item) => {
-                    const isActive = pathname === item.href ||
-                        (item.href !== '/' && pathname.startsWith(item.href));
-
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={cn(
-                                'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all duration-150',
-                                'hover:bg-accent/50',
-                                isActive
-                                    ? 'bg-accent text-accent-foreground font-medium'
-                                    : 'text-muted-foreground hover:text-foreground',
-                                sidebarCollapsed && 'justify-center px-0',
-                            )}
-                        >
-                            <item.icon className="w-4 h-4 flex-shrink-0" />
-                            {!sidebarCollapsed && <span>{item.label}</span>}
-                        </Link>
-                    );
-                })}
-            </nav>
-
-            {/* Collapse toggle */}
-            <button
-                onClick={toggleSidebar}
-                className="flex items-center justify-center h-10 border-t border-border/50 text-muted-foreground hover:text-foreground transition-colors"
             >
-                {sidebarCollapsed ? (
-                    <ChevronRight className="w-4 h-4" />
-                ) : (
-                    <ChevronLeft className="w-4 h-4" />
-                )}
-            </button>
-        </aside>
+                {/* Logo */}
+                <div className={cn('flex h-14 items-center border-b border-border-primary px-4', collapsed && 'justify-center')}>
+                    <Gamepad2 className="h-6 w-6 text-accent shrink-0" />
+                    {!collapsed && (
+                        <span className="ml-2.5 text-sm font-bold tracking-tight text-text-primary">
+                            SaifControl
+                        </span>
+                    )}
+                </div>
+
+                {/* Nav */}
+                <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+                    {navItems.map((item) => {
+                        const active = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href));
+                        const link = (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className={cn(
+                                    'flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-sm font-medium transition-colors duration-150',
+                                    active
+                                        ? 'bg-accent-muted text-accent'
+                                        : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary',
+                                    collapsed && 'justify-center px-0'
+                                )}
+                            >
+                                <item.icon className="h-4 w-4 shrink-0" />
+                                {!collapsed && item.label}
+                            </Link>
+                        );
+
+                        if (collapsed) {
+                            return (
+                                <Tooltip key={item.href}>
+                                    <TooltipTrigger asChild>{link}</TooltipTrigger>
+                                    <TooltipContent side="right">{item.label}</TooltipContent>
+                                </Tooltip>
+                            );
+                        }
+                        return link;
+                    })}
+                </nav>
+
+                {/* Collapse toggle */}
+                <div className="border-t border-border-primary p-2">
+                    <button
+                        onClick={toggle}
+                        className="flex w-full items-center justify-center rounded-[var(--radius-md)] py-2 text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+                    >
+                        {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                    </button>
+                </div>
+            </aside>
+        </TooltipProvider>
     );
 }
