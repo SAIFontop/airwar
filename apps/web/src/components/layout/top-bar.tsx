@@ -1,12 +1,14 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useAlertStore, useServerStore, useUIStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import { Bell, Command, Search } from 'lucide-react';
 
 export function TopBar() {
     const { setCommandPaletteOpen } = useUIStore();
-    const alerts = useAlertStore((s) => s.alerts.filter((a) => !a.acknowledged));
+    const allAlerts = useAlertStore((s) => s.alerts);
+    const alerts = useMemo(() => allAlerts.filter((a) => !a.acknowledged), [allAlerts]);
     const activeServerId = useServerStore((s) => s.activeServerId);
     const servers = useServerStore((s) => s.servers);
     const activeServer = servers.find((s) => s.id === activeServerId);
