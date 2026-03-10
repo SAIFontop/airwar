@@ -54,3 +54,55 @@ export const useAppStore = create<AppState>((set) => ({
     sidebarOpen: true,
     toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
 }));
+
+interface UIState {
+    commandPaletteOpen: boolean;
+    setCommandPaletteOpen: (open: boolean) => void;
+    sidebarCollapsed: boolean;
+    toggleSidebar: () => void;
+}
+
+export const useUIStore = create<UIState>((set) => ({
+    commandPaletteOpen: false,
+    setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
+    sidebarCollapsed: false,
+    toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+}));
+
+interface Alert {
+    id: string;
+    message: string;
+    severity: string;
+    acknowledged: boolean;
+    createdAt: string;
+}
+
+interface AlertState {
+    alerts: Alert[];
+    setAlerts: (alerts: Alert[]) => void;
+}
+
+export const useAlertStore = create<AlertState>((set) => ({
+    alerts: [],
+    setAlerts: (alerts) => set({ alerts }),
+}));
+
+interface ServerEntry {
+    id: string;
+    name: string;
+    status: string;
+}
+
+interface ServerState {
+    servers: ServerEntry[];
+    activeServerId: string | null;
+    setServers: (servers: ServerEntry[]) => void;
+    setActiveServerId: (id: string | null) => void;
+}
+
+export const useServerStore = create<ServerState>((set) => ({
+    servers: [],
+    activeServerId: null,
+    setServers: (servers) => set({ servers }),
+    setActiveServerId: (id) => set({ activeServerId: id }),
+}));
