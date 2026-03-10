@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --background: 0 0% 3.9%;
+        --foreground: 0 0% 95%;
+        --card: 0 0% 6%;
+        --card-foreground: 0 0% 95%;
+        --popover: 0 0% 6%;
+        --popover-foreground: 0 0% 95%;
+        --primary: 142 71% 45%;
+        --primary-foreground: 0 0% 2%;
+        --secondary: 0 0% 12%;
+        --secondary-foreground: 0 0% 95%;
+        --muted: 0 0% 12%;
+        --muted-foreground: 0 0% 55%;
+        --accent: 0 0% 12%;
+        --accent-foreground: 0 0% 95%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 95%;
+        --success: 142 71% 45%;
+        --success-foreground: 0 0% 2%;
+        --warning: 38 92% 50%;
+        --warning-foreground: 0 0% 2%;
+        --border: 0 0% 12%;
+        --input: 0 0% 12%;
+        --ring: 142 71% 45%;
+        --radius: 0.5rem;
+    }
+
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground antialiased;
+        font-feature-settings: "rlig" 1, "calt" 1;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: hsl(0 0% 20%);
+        border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: hsl(0 0% 30%);
+    }
+}
+
+@layer components {
+    .glass-panel {
+        @apply bg-card/50 backdrop-blur-xl border border-border/50 rounded-lg;
+    }
+
+    .glass-panel-hover {
+        @apply glass-panel hover:bg-card/70 hover:border-border transition-all duration-200;
+    }
+
+    .status-dot {
+        @apply w-2 h-2 rounded-full;
+    }
+
+    .status-dot-online {
+        @apply status-dot bg-green-500 shadow-[0_0_6px_rgba(34_197_94_/_0.5)];
+    }
+
+    .status-dot-offline {
+        @apply status-dot bg-zinc-500;
+    }
+
+    .status-dot-warning {
+        @apply status-dot bg-yellow-500 shadow-[0_0_6px_rgba(234_179_8_/_0.5)];
+    }
+
+    .status-dot-error {
+        @apply status-dot bg-red-500 shadow-[0_0_6px_rgba(239_68_68_/_0.5)] animate-pulse-glow;
+    }
+
+    .metric-value {
+        @apply text-2xl font-semibold tracking-tight tabular-nums;
+    }
+
+    .metric-label {
+        @apply text-xs font-medium text-muted-foreground uppercase tracking-wider;
+    }
+
+    .kbd {
+        @apply inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground bg-muted rounded border border-border/50;
+    }
+}
