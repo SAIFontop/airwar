@@ -3,8 +3,11 @@
 import {
     useAutoRestart,
     useInstallResource,
+    usePanelTunnelStatus,
     useServerHealth,
+    useStartPanelTunnel,
     useStartTunnel,
+    useStopPanelTunnel,
     useStopTunnel,
     useToggleAutoRestart,
     useTunnelStatus,
@@ -28,16 +31,21 @@ import { useCallback, useState } from 'react';
 
 export default function TunnelPage() {
     const { data: tunnel, isLoading: tunnelLoading } = useTunnelStatus();
+    const { data: panelTunnel } = usePanelTunnelStatus();
     const { data: health } = useServerHealth();
     const { data: autoRestart } = useAutoRestart();
 
     const startTunnel = useStartTunnel();
     const stopTunnel = useStopTunnel();
+    const startPanelTunnel = useStartPanelTunnel();
+    const stopPanelTunnel = useStopPanelTunnel();
     const toggleAutoRestart = useToggleAutoRestart();
 
     const [port, setPort] = useState('30120');
     const [token, setToken] = useState('');
+    const [panelToken, setPanelToken] = useState('');
     const [copied, setCopied] = useState(false);
+    const [panelCopied, setPanelCopied] = useState(false);
 
     // Resource installer state
     const [repoUrl, setRepoUrl] = useState('');
@@ -108,8 +116,8 @@ export default function TunnelPage() {
                             </div>
                         </div>
                         <div className={`text-[10px] px-2 py-1 rounded-full font-medium ${tunnel?.active
-                                ? 'bg-emerald-400/10 text-emerald-400'
-                                : 'bg-red-400/10 text-red-400'
+                            ? 'bg-emerald-400/10 text-emerald-400'
+                            : 'bg-red-400/10 text-red-400'
                             }`}>
                             {tunnel?.active ? 'LIVE' : 'OFF'}
                         </div>
@@ -174,6 +182,82 @@ export default function TunnelPage() {
                     )}
                 </div>
 
+                {/* ── Panel Tunnel ── */}
+                <div className="glass-card p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className={`p-2 rounded-xl ${panelTunnel?.active ? 'bg-blue-400/10' : 'bg-white/5'}`}>
+                                {panelTunnel?.active ? (
+                                    <Globe className="w-5 h-5 text-blue-400" />
+                                ) : (
+                                    <Globe className="w-5 h-5 text-muted" />
+                                )}
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-text text-sm">Panel Tunnel</h3>
+                                <p className="text-xs text-muted">
+                                    {panelTunnel?.active ? 'Panel accessible online' : 'Panel local only'}
+                                </p>
+                            </div>
+                        </div>
+                        <div className={`text-[10px] px-2 py-1 rounded-full font-medium ${panelTunnel?.active
+                            ? 'bg-blue-400/10 text-blue-400'
+                            : 'bg-red-400/10 text-red-400'
+                            }`}>
+                            {panelTunnel?.active ? 'LIVE' : 'OFF'}
+                        </div>
+                    </div>
+
+                    {panelTunnel?.active && panelTunnel.url ? (
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2 p-3 rounded-lg bg-white/5">
+                                <Globe className="w-4 h-4 text-blue-400 shrink-0" />
+                                <span className="text-sm text-text font-mono flex-1 truncate">{panelTunnel.url}</span>
+                                <button onClick={() => { navigator.clipboard.writeText(panelTunnel.url); setPanelCopied(true); setTimeout(() => setPanelCopied(false), 2000); }} className="text-muted hover:text-blue-400 transition">
+                                    {panelCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                                </button>
+                            </div>
+                            <button
+                                onClick={() => stopPanelTunnel.mutate()}
+                                disabled={stopPanelTunnel.isPending}
+                                className="w-full py-2.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition text-sm font-medium flex items-center justify-center gap-2"
+                            >
+                                {stopPanelTunnel.isPending ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <PowerOff className="w-4 h-4" />
+                                )}
+                                Stop Panel Tunnel
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-xs text-muted mb-1 block">Token (optional)</label>
+                                <input
+                                    value={panelToken}
+                                    onChange={(e) => setPanelToken(e.target.value)}
+                                    placeholder="Pinggy token"
+                                    type="password"
+                                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-border text-sm text-text outline-none focus:border-primary transition"
+                                />
+                            </div>
+                            <button
+                                onClick={() => startPanelTunnel.mutateAsync({ token: panelToken.trim() || undefined })}
+                                disabled={startPanelTunnel.isPending}
+                                className="w-full py-2.5 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition text-sm font-medium flex items-center justify-center gap-2"
+                            >
+                                {startPanelTunnel.isPending ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <Power className="w-4 h-4" />
+                                )}
+                                Start Panel Tunnel
+                            </button>
+                        </div>
+                    )}
+                </div>
+
                 {/* ── Server Health ── */}
                 <div className="glass-card p-6 space-y-4">
                     <div className="flex items-center justify-between">
@@ -193,8 +277,8 @@ export default function TunnelPage() {
                             </div>
                         </div>
                         <div className={`text-[10px] px-2 py-1 rounded-full font-medium ${health?.healthy
-                                ? 'bg-emerald-400/10 text-emerald-400'
-                                : 'bg-red-400/10 text-red-400'
+                            ? 'bg-emerald-400/10 text-emerald-400'
+                            : 'bg-red-400/10 text-red-400'
                             }`}>
                             {health?.healthy ? 'HEALTHY' : 'DOWN'}
                         </div>
@@ -281,8 +365,8 @@ export default function TunnelPage() {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0 }}
                                 className={`p-3 rounded-lg text-sm ${installResult.startsWith('Error')
-                                        ? 'bg-red-400/10 text-red-400'
-                                        : 'bg-emerald-400/10 text-emerald-400'
+                                    ? 'bg-red-400/10 text-red-400'
+                                    : 'bg-emerald-400/10 text-emerald-400'
                                     }`}
                             >
                                 {installResult}

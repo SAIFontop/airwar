@@ -1063,6 +1063,93 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
         };
     });
 
+    // ═══ Panel Tunnel (HTTPS for web panel access) ═══
+
+    let panelTunnelProcess: import('child_process').ChildProcess | null = null;
+    let panelTunnelUrl = '';
+
+    app.post<{ Body: { token?: string } }>(
+        '/api/tunnel/panel/start',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            if (panelTunnelProcess) return { success: false, error: 'Panel tunnel already running' };
+
+            const token = request.body.token || '';
+            const port = 3000; // Next.js web panel port
+
+            return new Promise((res) => {
+                const host = token ? 'pro.pinggy.io' : 'a.pinggy.io';
+                // No protocol suffix = HTTPS tunnel
+                const user = token || '';
+                const args = [
+                    '-p', '443',
+                    `-R0:localhost:${port}`,
+                    '-o', 'StrictHostKeyChecking=no',
+                    '-o', 'ServerAliveInterval=30',
+                    ...(user ? [`${user}@${host}`] : [host]),
+                ];
+
+                panelTunnelProcess = spawn('ssh', args, {
+                    stdio: ['pipe', 'pipe', 'pipe'],
+                    env: { ...process.env },
+                });
+
+                let output = '';
+                let resolved = false;
+
+                const onData = (data: Buffer) => {
+                    output += data.toString();
+                    const urlMatch = output.match(/(https?:\/\/[^\s]+)/);
+                    if (urlMatch && !resolved) {
+                        resolved = true;
+                        panelTunnelUrl = urlMatch[1];
+                        res({ success: true, data: { url: panelTunnelUrl } });
+                    }
+                };
+
+                panelTunnelProcess.stdout?.on('data', onData);
+                panelTunnelProcess.stderr?.on('data', onData);
+
+                panelTunnelProcess.on('exit', () => {
+                    panelTunnelProcess = null;
+                    panelTunnelUrl = '';
+                    if (!resolved) {
+                        resolved = true;
+                        res({ success: false, error: `Panel tunnel exited: ${output.slice(-500)}` });
+                    }
+                });
+
+                setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        const m = output.match(/(https?:\/\/[^\s]+)/);
+                        if (m) panelTunnelUrl = m[1];
+                        res({ success: true, data: { url: panelTunnelUrl || 'connecting...', output: output.slice(-500) } });
+                    }
+                }, 20000);
+            });
+        },
+    );
+
+    app.post('/api/tunnel/panel/stop', { preHandler: requireRole('owner') }, async () => {
+        if (panelTunnelProcess) {
+            panelTunnelProcess.kill();
+            panelTunnelProcess = null;
+            panelTunnelUrl = '';
+        }
+        return { success: true };
+    });
+
+    app.get('/api/tunnel/panel/status', async () => {
+        return {
+            success: true,
+            data: {
+                active: panelTunnelProcess !== null,
+                url: panelTunnelUrl,
+            },
+        };
+    });
+
     // ═══ Server Logs (History) ═══
 
     app.get('/api/server/logs', async () => {

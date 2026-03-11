@@ -554,6 +554,36 @@ export function useStopTunnel() {
     });
 }
 
+// ─── Panel Tunnel ───
+export function usePanelTunnelStatus() {
+    return useQuery({
+        queryKey: ['panel-tunnel-status'],
+        queryFn: async () => {
+            const res = await api.getPanelTunnelStatus();
+            if (!res.success) throw new Error(res.error);
+            return res.data!;
+        },
+        refetchInterval: 10000,
+    });
+}
+
+export function useStartPanelTunnel() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (args?: { token?: string }) =>
+            api.startPanelTunnel(args?.token),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['panel-tunnel-status'] }),
+    });
+}
+
+export function useStopPanelTunnel() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: () => api.stopPanelTunnel(),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['panel-tunnel-status'] }),
+    });
+}
+
 // ─── Server Logs ───
 export function useServerLogs() {
     return useQuery({

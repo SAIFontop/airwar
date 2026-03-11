@@ -448,6 +448,19 @@ class ApiClient {
         return this.request<{ active: boolean; url: string }>('GET', '/api/tunnel/status');
     }
 
+    // ─── Panel Tunnel ───
+    async startPanelTunnel(token?: string) {
+        return this.request<{ url: string }>('POST', '/api/tunnel/panel/start', { token });
+    }
+
+    async stopPanelTunnel() {
+        return this.request<{ success: boolean }>('POST', '/api/tunnel/panel/stop');
+    }
+
+    async getPanelTunnelStatus() {
+        return this.request<{ active: boolean; url: string }>('GET', '/api/tunnel/panel/status');
+    }
+
     // ─── Server Logs ───
     async getServerLogs() {
         return this.request<{ lines: string[] }>('GET', '/api/server/logs');
