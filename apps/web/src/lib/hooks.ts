@@ -374,3 +374,195 @@ export function useSetupStatus() {
         },
     });
 }
+
+// ─── Web Terminal ───
+export function useTerminalCreate() {
+    return useMutation({
+        mutationFn: () => api.createTerminal(),
+    });
+}
+
+export function useTerminalExec() {
+    return useMutation({
+        mutationFn: (args: { sessionId: string; command: string }) =>
+            api.execTerminal(args.sessionId, args.command),
+    });
+}
+
+export function useTerminalKill() {
+    return useMutation({
+        mutationFn: (sessionId: string) => api.killTerminal(sessionId),
+    });
+}
+
+// ─── File Manager ───
+export function useFileList(path: string) {
+    return useQuery({
+        queryKey: ['files', path],
+        queryFn: async () => {
+            const res = await api.listFiles(path);
+            if (!res.success) throw new Error(res.error);
+            return res.data!;
+        },
+    });
+}
+
+export function useFileRead(path: string) {
+    return useQuery({
+        queryKey: ['file-content', path],
+        queryFn: async () => {
+            const res = await api.readFileContent(path);
+            if (!res.success) throw new Error(res.error);
+            return res.data!;
+        },
+        enabled: false,
+    });
+}
+
+export function useFileWrite() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (args: { path: string; content: string }) =>
+            api.writeFileContent(args.path, args.content),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['files'] }),
+    });
+}
+
+export function useCreateDir() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (path: string) => api.createDirectory(path),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['files'] }),
+    });
+}
+
+export function useDeleteFile() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (path: string) => api.deleteFile(path),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['files'] }),
+    });
+}
+
+// ─── Scheduler ───
+export function useSchedulerTasks() {
+    return useQuery({
+        queryKey: ['scheduler-tasks'],
+        queryFn: async () => {
+            const res = await api.getSchedulerTasks();
+            if (!res.success) throw new Error(res.error);
+            return res.data || [];
+        },
+    });
+}
+
+export function useCreateSchedulerTask() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (task: { name: string; type: string; schedule: string; command?: string; enabled: boolean }) =>
+            api.createSchedulerTask(task),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['scheduler-tasks'] }),
+    });
+}
+
+export function useDeleteSchedulerTask() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => api.deleteSchedulerTask(id),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['scheduler-tasks'] }),
+    });
+}
+
+export function useToggleSchedulerTask() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (args: { id: string; enabled: boolean }) =>
+            api.toggleSchedulerTask(args.id, args.enabled),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['scheduler-tasks'] }),
+    });
+}
+
+// ─── Resource Installer ───
+export function useInstallResource() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (args: { repoUrl: string; resourceName?: string }) =>
+            api.installResource(args.repoUrl, args.resourceName),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['resources'] }),
+    });
+}
+
+// ─── Server Health ───
+export function useServerHealth() {
+    return useQuery({
+        queryKey: ['server-health'],
+        queryFn: async () => {
+            const res = await api.getServerHealth();
+            if (!res.success) throw new Error(res.error);
+            return res.data!;
+        },
+        refetchInterval: 15000,
+    });
+}
+
+export function useAutoRestart() {
+    return useQuery({
+        queryKey: ['auto-restart'],
+        queryFn: async () => {
+            const res = await api.getAutoRestart();
+            if (!res.success) throw new Error(res.error);
+            return res.data!;
+        },
+    });
+}
+
+export function useToggleAutoRestart() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (enabled: boolean) => api.toggleAutoRestart(enabled),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['auto-restart'] }),
+    });
+}
+
+// ─── Pinggy Tunnel ───
+export function useTunnelStatus() {
+    return useQuery({
+        queryKey: ['tunnel-status'],
+        queryFn: async () => {
+            const res = await api.getTunnelStatus();
+            if (!res.success) throw new Error(res.error);
+            return res.data!;
+        },
+        refetchInterval: 10000,
+    });
+}
+
+export function useStartTunnel() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (args?: { port?: number; token?: string }) =>
+            api.startTunnel(args?.port, args?.token),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['tunnel-status'] }),
+    });
+}
+
+export function useStopTunnel() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: () => api.stopTunnel(),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['tunnel-status'] }),
+    });
+}
+
+// ─── Server Logs ───
+export function useServerLogs() {
+    return useQuery({
+        queryKey: ['server-logs'],
+        queryFn: async () => {
+            const res = await api.getServerLogs();
+            if (!res.success) throw new Error(res.error);
+            return res.data!;
+        },
+        refetchInterval: 3000,
+    });
+}

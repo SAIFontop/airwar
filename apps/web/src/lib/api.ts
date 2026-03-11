@@ -365,6 +365,93 @@ class ApiClient {
     async switchProfile(profileId: string) {
         return this.request<{ success: boolean }>('POST', '/api/profiles/switch', { profileId });
     }
+
+    // ─── Web Terminal ───
+    async createTerminal() {
+        return this.request<{ sessionId: string }>('POST', '/api/terminal/create');
+    }
+
+    async execTerminal(sessionId: string, command: string) {
+        return this.request<{ output: string }>('POST', '/api/terminal/exec', { sessionId, command });
+    }
+
+    async killTerminal(sessionId: string) {
+        return this.request<{ success: boolean }>('POST', '/api/terminal/kill', { sessionId });
+    }
+
+    // ─── File Manager ───
+    async listFiles(path: string) {
+        return this.request<{ path: string; basePath: string; items: Array<{ name: string; type: 'file' | 'directory'; size: number; modified: string }> }>('POST', '/api/files/list', { path });
+    }
+
+    async readFileContent(path: string) {
+        return this.request<{ content: string; size: number }>('POST', '/api/files/read', { path });
+    }
+
+    async writeFileContent(path: string, content: string) {
+        return this.request<{ success: boolean }>('POST', '/api/files/write', { path, content });
+    }
+
+    async createDirectory(path: string) {
+        return this.request<{ success: boolean }>('POST', '/api/files/mkdir', { path });
+    }
+
+    async deleteFile(path: string) {
+        return this.request<{ success: boolean }>('POST', '/api/files/delete', { path });
+    }
+
+    // ─── Scheduler ───
+    async getSchedulerTasks() {
+        return this.request<Array<{ id: string; name: string; type: string; schedule: string; command: string; enabled: boolean; createdAt: string }>>('GET', '/api/scheduler/tasks');
+    }
+
+    async createSchedulerTask(task: { name: string; type: string; schedule: string; command?: string; enabled: boolean }) {
+        return this.request<{ id: string; name: string; type: string; schedule: string; command: string; enabled: boolean; createdAt: string }>('POST', '/api/scheduler/tasks', task);
+    }
+
+    async deleteSchedulerTask(id: string) {
+        return this.request<{ success: boolean }>('DELETE', `/api/scheduler/tasks/${id}`);
+    }
+
+    async toggleSchedulerTask(id: string, enabled: boolean) {
+        return this.request<{ success: boolean }>('POST', '/api/scheduler/tasks/toggle', { id, enabled });
+    }
+
+    // ─── Resource Installer ───
+    async installResource(repoUrl: string, resourceName?: string) {
+        return this.request<{ name: string; path: string; output: string }>('POST', '/api/resources/install', { repoUrl, resourceName });
+    }
+
+    // ─── Server Health ───
+    async getServerHealth() {
+        return this.request<{ healthy: boolean; status: string; responding: boolean; serverInfo: Record<string, unknown> | null }>('GET', '/api/server/health');
+    }
+
+    async getAutoRestart() {
+        return this.request<{ enabled: boolean }>('GET', '/api/server/auto-restart');
+    }
+
+    async toggleAutoRestart(enabled: boolean) {
+        return this.request<{ success: boolean }>('POST', '/api/server/auto-restart/toggle', { enabled });
+    }
+
+    // ─── Pinggy Tunnel ───
+    async startTunnel(port?: number, token?: string) {
+        return this.request<{ url: string; port: number; output?: string }>('POST', '/api/tunnel/start', { port, token });
+    }
+
+    async stopTunnel() {
+        return this.request<{ success: boolean }>('POST', '/api/tunnel/stop');
+    }
+
+    async getTunnelStatus() {
+        return this.request<{ active: boolean; url: string }>('GET', '/api/tunnel/status');
+    }
+
+    // ─── Server Logs ───
+    async getServerLogs() {
+        return this.request<{ lines: string[] }>('GET', '/api/server/logs');
+    }
 }
 
 export type Check = { id: string; label: string; status: string; message: string; details?: string; autoFixAvailable: boolean };

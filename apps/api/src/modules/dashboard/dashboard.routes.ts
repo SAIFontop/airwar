@@ -1,10 +1,11 @@
 import type { AutomationRule, ServerProfile } from '@saifcontrol/shared';
 import { AlertsSchema, BansSchema, ProfilesSchema, STORAGE_FILES, WebhookConfigSchema } from '@saifcontrol/shared';
+import { spawn } from 'child_process';
 import { randomUUID } from 'crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { existsSync } from 'fs';
-import { readFile, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
+import { basename, join, relative, resolve } from 'path';
 import { readAuditLog, writeAudit } from '../../lib/audit.js';
 import { getStore } from '../../lib/store.js';
 import * as authService from '../auth/auth.service.js';
@@ -607,5 +608,417 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
         const valid = await authService.confirm2FA(user.sub, request.body.secret, request.body.code);
         if (!valid) return { success: false, error: 'Invalid verification code' };
         return { success: true };
+    });
+
+    // ═══ Web Terminal ═══
+
+    const terminalSessions = new Map<string, import('child_process').ChildProcess>();
+
+    app.post('/api/terminal/create', { preHandler: requireRole('owner') }, async () => {
+        const id = randomUUID();
+        const shell = spawn('/bin/bash', ['-i'], {
+            cwd: process.env.HOME || '/root',
+            env: { ...process.env, TERM: 'xterm-256color' },
+            stdio: ['pipe', 'pipe', 'pipe'],
+        });
+        terminalSessions.set(id, shell);
+        shell.on('exit', () => terminalSessions.delete(id));
+        return { success: true, data: { sessionId: id } };
+    });
+
+    app.post<{ Body: { sessionId: string; command: string } }>(
+        '/api/terminal/exec',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            const { sessionId, command } = request.body;
+            const shell = terminalSessions.get(sessionId);
+            if (!shell?.stdin) return { success: false, error: 'Session not found' };
+
+            return new Promise((res) => {
+                let output = '';
+                const timeout = setTimeout(() => {
+                    res({ success: true, data: { output: output || '(no output)' } });
+                }, 8000);
+
+                const onData = (chunk: Buffer) => { output += chunk.toString(); };
+                shell.stdout?.on('data', onData);
+                shell.stderr?.on('data', onData);
+
+                shell.stdin?.write(command + '\n');
+
+                setTimeout(() => {
+                    shell.stdout?.removeListener('data', onData);
+                    shell.stderr?.removeListener('data', onData);
+                    clearTimeout(timeout);
+                    res({ success: true, data: { output } });
+                }, 1500);
+            });
+        },
+    );
+
+    app.post<{ Body: { sessionId: string } }>(
+        '/api/terminal/kill',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            const shell = terminalSessions.get(request.body.sessionId);
+            if (shell) { shell.kill(); terminalSessions.delete(request.body.sessionId); }
+            return { success: true };
+        },
+    );
+
+    // ═══ File Manager ═══
+
+    function safePath(base: string, requested: string): string | null {
+        const full = resolve(base, requested);
+        const rel = relative(base, full);
+        if (rel.startsWith('..') || resolve(full) !== full) return null;
+        return full;
+    }
+
+    app.post<{ Body: { path: string } }>(
+        '/api/files/list',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            const profile = await getActiveProfile();
+            const basePath = profile?.serverDataPath || (process.env.HOME || '/root');
+            const targetPath = request.body.path === '/' ? basePath : safePath(basePath, request.body.path);
+            if (!targetPath) return { success: false, error: 'Invalid path' };
+
+            if (!existsSync(targetPath)) return { success: false, error: 'Path not found' };
+
+            const stats = await stat(targetPath);
+            if (!stats.isDirectory()) return { success: false, error: 'Not a directory' };
+
+            const entries = await readdir(targetPath, { withFileTypes: true });
+            const items = await Promise.all(entries.map(async (e) => {
+                const fullPath = join(targetPath, e.name);
+                try {
+                    const s = await stat(fullPath);
+                    return {
+                        name: e.name,
+                        type: e.isDirectory() ? 'directory' as const : 'file' as const,
+                        size: s.size,
+                        modified: s.mtime.toISOString(),
+                    };
+                } catch {
+                    return { name: e.name, type: e.isDirectory() ? 'directory' as const : 'file' as const, size: 0, modified: '' };
+                }
+            }));
+
+            items.sort((a, b) => {
+                if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
+                return a.name.localeCompare(b.name);
+            });
+
+            return { success: true, data: { path: request.body.path, basePath, items } };
+        },
+    );
+
+    app.post<{ Body: { path: string } }>(
+        '/api/files/read',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            const profile = await getActiveProfile();
+            const basePath = profile?.serverDataPath || (process.env.HOME || '/root');
+            const targetPath = safePath(basePath, request.body.path);
+            if (!targetPath) return { success: false, error: 'Invalid path' };
+            if (!existsSync(targetPath)) return { success: false, error: 'File not found' };
+
+            const s = await stat(targetPath);
+            if (s.size > 2 * 1024 * 1024) return { success: false, error: 'File too large (max 2MB)' };
+
+            const content = await readFile(targetPath, 'utf-8');
+            return { success: true, data: { content, size: s.size } };
+        },
+    );
+
+    app.post<{ Body: { path: string; content: string } }>(
+        '/api/files/write',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            const profile = await getActiveProfile();
+            const basePath = profile?.serverDataPath || (process.env.HOME || '/root');
+            const targetPath = safePath(basePath, request.body.path);
+            if (!targetPath) return { success: false, error: 'Invalid path' };
+
+            const dir = join(targetPath, '..');
+            if (!existsSync(dir)) await mkdir(dir, { recursive: true });
+
+            await writeFile(targetPath, request.body.content, 'utf-8');
+            writeAudit({ userId: getAuthUser(request).sub, action: 'file.write', details: { path: request.body.path } });
+            return { success: true };
+        },
+    );
+
+    app.post<{ Body: { path: string } }>(
+        '/api/files/mkdir',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            const profile = await getActiveProfile();
+            const basePath = profile?.serverDataPath || (process.env.HOME || '/root');
+            const targetPath = safePath(basePath, request.body.path);
+            if (!targetPath) return { success: false, error: 'Invalid path' };
+            await mkdir(targetPath, { recursive: true });
+            return { success: true };
+        },
+    );
+
+    app.post<{ Body: { path: string } }>(
+        '/api/files/delete',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            const profile = await getActiveProfile();
+            const basePath = profile?.serverDataPath || (process.env.HOME || '/root');
+            const targetPath = safePath(basePath, request.body.path);
+            if (!targetPath) return { success: false, error: 'Invalid path' };
+            if (!existsSync(targetPath)) return { success: false, error: 'Not found' };
+
+            await rm(targetPath, { recursive: true });
+            writeAudit({ userId: getAuthUser(request).sub, action: 'file.delete', details: { path: request.body.path } });
+            return { success: true };
+        },
+    );
+
+    // ═══ Scheduled Tasks ═══
+
+    const scheduledJobs = new Map<string, NodeJS.Timeout>();
+
+    app.get('/api/scheduler/tasks', async () => {
+        const store = getStore();
+        try {
+            const raw = await readFile(store.getFilePath('scheduler.json'), 'utf-8');
+            return { success: true, data: JSON.parse(raw).tasks || [] };
+        } catch {
+            return { success: true, data: [] };
+        }
+    });
+
+    app.post<{ Body: { name: string; type: 'restart' | 'backup' | 'command' | 'message'; schedule: string; command?: string; enabled: boolean } }>(
+        '/api/scheduler/tasks',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            const { name, type, schedule, command, enabled } = request.body;
+            const task = { id: randomUUID(), name, type, schedule, command: command || '', enabled, createdAt: new Date().toISOString() };
+
+            const store = getStore();
+            const filePath = store.getFilePath('scheduler.json');
+            let tasks: any[] = [];
+            try { tasks = JSON.parse(await readFile(filePath, 'utf-8')).tasks || []; } catch { /* empty */ }
+            tasks.push(task);
+            await store.writeAtomic('scheduler.json', { tasks });
+
+            writeAudit({ userId: getAuthUser(request).sub, action: 'scheduler.create', details: { name, type } });
+            return { success: true, data: task };
+        },
+    );
+
+    app.delete<{ Params: { id: string } }>(
+        '/api/scheduler/tasks/:id',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            const store = getStore();
+            const filePath = store.getFilePath('scheduler.json');
+            let tasks: any[] = [];
+            try { tasks = JSON.parse(await readFile(filePath, 'utf-8')).tasks || []; } catch { /* empty */ }
+            tasks = tasks.filter(t => t.id !== request.params.id);
+            await store.writeAtomic('scheduler.json', { tasks });
+
+            // Clear interval if running
+            const interval = scheduledJobs.get(request.params.id);
+            if (interval) { clearInterval(interval); scheduledJobs.delete(request.params.id); }
+
+            writeAudit({ userId: getAuthUser(request).sub, action: 'scheduler.delete', details: { taskId: request.params.id } });
+            return { success: true };
+        },
+    );
+
+    app.post<{ Body: { id: string; enabled: boolean } }>(
+        '/api/scheduler/tasks/toggle',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            const store = getStore();
+            const filePath = store.getFilePath('scheduler.json');
+            let tasks: any[] = [];
+            try { tasks = JSON.parse(await readFile(filePath, 'utf-8')).tasks || []; } catch { /* empty */ }
+            const task = tasks.find(t => t.id === request.body.id);
+            if (!task) return { success: false, error: 'Task not found' };
+            task.enabled = request.body.enabled;
+            await store.writeAtomic('scheduler.json', { tasks });
+            return { success: true };
+        },
+    );
+
+    // ═══ Quick Resource Installer ═══
+
+    app.post<{ Body: { repoUrl: string; resourceName?: string } }>(
+        '/api/resources/install',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            const profile = await getActiveProfile();
+            if (!profile) return { success: false, error: 'No active profile' };
+
+            const { repoUrl, resourceName } = request.body;
+            // Validate URL format
+            if (!/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+/.test(repoUrl)) {
+                return { success: false, error: 'Invalid GitHub URL' };
+            }
+
+            const name = resourceName || basename(repoUrl.replace(/\.git$/, ''));
+            const targetDir = join(profile.serverDataPath, 'resources', name);
+
+            if (existsSync(targetDir)) {
+                return { success: false, error: `Resource "${name}" already exists` };
+            }
+
+            return new Promise((res) => {
+                const git = spawn('git', ['clone', '--depth', '1', repoUrl, targetDir]);
+                let output = '';
+                git.stdout?.on('data', (d: Buffer) => { output += d.toString(); });
+                git.stderr?.on('data', (d: Buffer) => { output += d.toString(); });
+                git.on('close', (code) => {
+                    if (code === 0) {
+                        writeAudit({ userId: getAuthUser(request).sub, action: 'resource.install', details: { repoUrl, name } });
+                        res({ success: true, data: { name, path: targetDir, output } });
+                    } else {
+                        res({ success: false, error: `Git clone failed: ${output}` });
+                    }
+                });
+            });
+        },
+    );
+
+    // ═══ Crash Detection & Health ═══
+
+    app.get('/api/server/health', async () => {
+        const profile = await getActiveProfile();
+        if (!profile) return { success: true, data: { healthy: false, reason: 'No active profile' } };
+
+        const manager = getServerManager(profile);
+        const info = await manager.getServerInfo();
+        const isResponding = info !== null;
+
+        return {
+            success: true,
+            data: {
+                healthy: manager.status === 'running' && isResponding,
+                status: manager.status,
+                responding: isResponding,
+                serverInfo: info,
+            },
+        };
+    });
+
+    app.post('/api/server/auto-restart/toggle', { preHandler: requireRole('owner') }, async (request) => {
+        const { enabled } = request.body as { enabled: boolean };
+        const store = getStore();
+        await store.writeAtomic('auto-restart.json', { enabled, updatedAt: new Date().toISOString() });
+        writeAudit({ userId: getAuthUser(request).sub, action: 'auto-restart.toggle', details: { enabled } });
+        return { success: true };
+    });
+
+    app.get('/api/server/auto-restart', async () => {
+        const store = getStore();
+        try {
+            const raw = await readFile(store.getFilePath('auto-restart.json'), 'utf-8');
+            return { success: true, data: JSON.parse(raw) };
+        } catch {
+            return { success: true, data: { enabled: false } };
+        }
+    });
+
+    // ═══ Pinggy Tunnel ═══
+
+    let pinggyProcess: import('child_process').ChildProcess | null = null;
+    let pinggyUrl = '';
+
+    app.post<{ Body: { port?: number; token?: string } }>(
+        '/api/tunnel/start',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            if (pinggyProcess) return { success: false, error: 'Tunnel already running' };
+
+            const port = request.body.port || 30120;
+            const token = request.body.token || '';
+
+            return new Promise((res) => {
+                const args = ['-p', '443', '-R0', '-o', 'StrictHostKeyChecking=no'];
+                if (token) {
+                    args.push(`${token}+tcp@a.pinggy.io`);
+                } else {
+                    args.push('tcp@a.pinggy.io');
+                }
+
+                pinggyProcess = spawn('ssh', [...args], {
+                    stdio: ['pipe', 'pipe', 'pipe'],
+                    env: { ...process.env },
+                });
+
+                let output = '';
+                let resolved = false;
+
+                const onData = (data: Buffer) => {
+                    output += data.toString();
+                    // Look for the tunnel URL in output
+                    const urlMatch = output.match(/(tcp:\/\/[^\s]+)/);
+                    if (urlMatch && !resolved) {
+                        resolved = true;
+                        pinggyUrl = urlMatch[1];
+                        res({ success: true, data: { url: pinggyUrl, port } });
+                    }
+                };
+
+                pinggyProcess.stdout?.on('data', onData);
+                pinggyProcess.stderr?.on('data', onData);
+
+                // Also handle stdin prompt for pinggy
+                pinggyProcess.stdin?.write(`${port}\n`);
+
+                pinggyProcess.on('exit', () => {
+                    pinggyProcess = null;
+                    pinggyUrl = '';
+                    if (!resolved) {
+                        resolved = true;
+                        res({ success: false, error: `Tunnel exited: ${output}` });
+                    }
+                });
+
+                // Timeout after 15s
+                setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        res({ success: true, data: { url: output.includes('tcp://') ? pinggyUrl : 'connecting...', port, output } });
+                    }
+                }, 15000);
+            });
+        },
+    );
+
+    app.post('/api/tunnel/stop', { preHandler: requireRole('owner') }, async () => {
+        if (pinggyProcess) {
+            pinggyProcess.kill();
+            pinggyProcess = null;
+            pinggyUrl = '';
+        }
+        return { success: true };
+    });
+
+    app.get('/api/tunnel/status', async () => {
+        return {
+            success: true,
+            data: {
+                active: pinggyProcess !== null,
+                url: pinggyUrl,
+            },
+        };
+    });
+
+    // ═══ Server Logs (History) ═══
+
+    app.get('/api/server/logs', async () => {
+        const profile = await getActiveProfile();
+        if (!profile) return { success: true, data: { lines: [] } };
+
+        const manager = getServerManager(profile);
+        return { success: true, data: { lines: manager.getLogBuffer() } };
     });
 }
