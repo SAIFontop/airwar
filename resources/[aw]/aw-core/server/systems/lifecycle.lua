@@ -162,24 +162,24 @@ end
 
 function Lifecycle._SchedulePeriodicTasks()
     -- Database write-behind flush (every 30s)
-    CoreScheduler.Repeat('core:db_flush', math.floor(1000 / AW.TICK.DB_FLUSH), function()
+    CoreScheduler.Repeat(math.floor(1000 / AW.TICK.DB_FLUSH), function()
         CoreDatabase.FlushWriteBehind()
-    end)
+    end, 'core:db_flush')
 
     -- Log buffer flush (every 10s)
-    CoreScheduler.Repeat('core:log_flush', math.floor(1000 / AW.TICK.LOG_FLUSH), function()
+    CoreScheduler.Repeat(math.floor(1000 / AW.TICK.LOG_FLUSH), function()
         CoreLogger.FlushToDb()
-    end)
+    end, 'core:log_flush')
 
     -- Cache purge expired (every 60s)
-    CoreScheduler.Repeat('core:cache_purge', 60000, function()
+    CoreScheduler.Repeat(60000, function()
         CoreCache.PurgeExpired()
-    end)
+    end, 'core:cache_purge')
 
     -- Module health checks (every 5s)
-    CoreScheduler.Repeat('core:health_check', math.floor(1000 / AW.TICK.HEALTH_CHECK), function()
+    CoreScheduler.Repeat(math.floor(1000 / AW.TICK.HEALTH_CHECK), function()
         CoreAPI.RunHealthChecks()
-    end)
+    end, 'core:health_check')
 
     CoreLogger.Info('lifecycle', 'Periodic tasks scheduled')
 end
