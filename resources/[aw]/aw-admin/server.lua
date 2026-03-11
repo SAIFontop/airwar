@@ -342,7 +342,7 @@ CoreCommands.Register('awadmin:info', {
 end)
 
 -- ─── Godmode damage prevention ──────────────────────────────────────
-CoreEvents.Subscribe(AW.EVENT and AW.EVENT.COMBAT_HIT or 'aw:combat:hit', function(data)
+CoreEvents.On(AW.EVENT and AW.EVENT.COMBAT_HIT or 'aw:combat:hit', function(data)
     local targetAwid = data.target_awid
     if MODULE_STATE.godmode[targetAwid] then
         -- Cancel damage by returning false (if combat module supports it)
@@ -351,7 +351,7 @@ CoreEvents.Subscribe(AW.EVENT and AW.EVENT.COMBAT_HIT or 'aw:combat:hit', functi
 end)
 
 -- ─── Player connected — refresh admin status ────────────────────────
-CoreEvents.Subscribe(AW.EVENT and AW.EVENT.PLAYER_LOADED or 'aw:player:loaded', function(data)
+CoreEvents.On(AW.EVENT and AW.EVENT.PLAYER_LOADED or 'aw:player:loaded', function(data)
     local src = data.source
     local awid = getAWID(src)
     if not awid then return end
@@ -370,7 +370,7 @@ CoreEvents.Subscribe(AW.EVENT and AW.EVENT.PLAYER_LOADED or 'aw:player:loaded', 
 end)
 
 -- ─── Player disconnected — cleanup ──────────────────────────────────
-CoreEvents.Subscribe(AW.EVENT and AW.EVENT.PLAYER_DROPPED or 'aw:player:dropped', function(data)
+CoreEvents.On(AW.EVENT and AW.EVENT.PLAYER_DROPPED or 'aw:player:dropped', function(data)
     local awid = data.awid
     MODULE_STATE.admins[awid] = nil
     MODULE_STATE.spectating[awid] = nil
@@ -378,7 +378,7 @@ CoreEvents.Subscribe(AW.EVENT and AW.EVENT.PLAYER_DROPPED or 'aw:player:dropped'
 end)
 
 -- ─── Initialization ─────────────────────────────────────────────────
-CoreEvents.Subscribe(AW.EVENT and AW.EVENT.CORE_READY or 'aw:core:ready', function()
+CoreEvents.On(AW.EVENT and AW.EVENT.CORE_READY or 'aw:core:ready', function()
     loadAdmins()
     CoreLogger.Log('admin', 'info', '[aw-admin] Admin module initialized')
 end)
