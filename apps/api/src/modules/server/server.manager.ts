@@ -139,6 +139,25 @@ export class ServerManager extends EventEmitter {
         }
     }
 
+    /** Get players via FiveM native /players.json endpoint (fallback) */
+    async getPlayersNative(): Promise<Array<{ id: number; name: string; identifiers: string[]; ping: number }> | null> {
+        const port = this.profile.port || 30120;
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+
+            const res = await fetch(`http://127.0.0.1:${port}/players.json`, {
+                signal: controller.signal,
+            });
+            clearTimeout(timeout);
+
+            if (!res.ok) return null;
+            return await res.json() as Array<{ id: number; name: string; identifiers: string[]; ping: number }>;
+        } catch {
+            return null;
+        }
+    }
+
     /** Get resources with live state via panel_bridge */
     async getResourcesViaBridge(): Promise<Array<{ name: string; state: string }> | null> {
         if (!this.profile.panelBridgeInstalled || !this.profile.panelBridgeToken) {

@@ -179,7 +179,7 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
         if (!profile) return { success: true, data: [] };
 
         const manager = getServerManager(profile);
-        const players = await manager.getPlayersViaBridge();
+        const players = await manager.getPlayersViaBridge() ?? await manager.getPlayersNative();
         return { success: true, data: players || [] };
     });
 
