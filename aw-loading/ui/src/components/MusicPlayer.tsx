@@ -15,7 +15,7 @@ export function MusicPlayer() {
         audioRef.current = audio
 
         if (musicPlaying) {
-            audio.play().catch(() => {})
+            audio.play().catch(() => { })
         }
 
         return () => {
@@ -30,7 +30,7 @@ export function MusicPlayer() {
         const audio = audioRef.current
         if (!audio) return
         if (musicPlaying) {
-            audio.play().catch(() => {})
+            audio.play().catch(() => { })
         } else {
             audio.pause()
         }
