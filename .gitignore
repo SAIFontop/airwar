@@ -5,3 +5,5 @@ dist/
 *.log
 .turbo/
 *.tsbuildinfo
+
+resources/[aw]/
