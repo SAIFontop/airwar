@@ -235,8 +235,28 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
                 for (const res of resources) {
                     res.status = 'stopped';
                 }
+            } else {
+                // Server is online but no bridge — use server.cfg as best guess
+                try {
+                    const cfgPath = join(profile.serverDataPath, 'server.cfg');
+                    if (existsSync(cfgPath)) {
+                        const cfg = await readFile(cfgPath, 'utf-8');
+                        const ensured = new Set<string>();
+                        for (const line of cfg.split('\n')) {
+                            const match = line.trim().match(/^(?:ensure|start)\s+(\S+)/);
+                            if (match) ensured.add(match[1]);
+                        }
+                        for (const res of resources) {
+                            const baseName = res.name.includes('/') ? res.name.split('/').pop()! : res.name;
+                            if (ensured.has(baseName) || ensured.has(res.name)) {
+                                res.status = 'started';
+                            } else {
+                                res.status = 'stopped';
+                            }
+                        }
+                    }
+                } catch { /* ignore cfg read errors */ }
             }
-            // else: server is up but bridge not installed — leave as 'unknown'
         }
 
         return { success: true, data: resources };
