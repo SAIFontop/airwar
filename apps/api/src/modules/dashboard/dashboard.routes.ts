@@ -937,15 +937,31 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
         return new Promise((res, rej) => {
             const host = token ? 'pro.pinggy.io' : 'a.pinggy.io';
             const user = token ? `${token}+${protocol}` : protocol;
-            const args = [
-                '-p', '443',
-                `-R0:127.0.0.1:${port}`,
-                '-o', 'StrictHostKeyChecking=no',
-                '-o', 'ServerAliveInterval=30',
-                `${user}@${host}`,
-            ];
 
-            const proc = spawn('ssh', args, {
+            let cmd: string;
+            let args: string[];
+
+            if (protocol === 'udp') {
+                // UDP tunnel requires Pinggy CLI (not SSH)
+                cmd = 'pinggy';
+                args = [
+                    '-p', '443',
+                    `-R0:127.0.0.1:${port}`,
+                    `${user}@${host}`,
+                ];
+            } else {
+                // TCP tunnel uses SSH
+                cmd = 'ssh';
+                args = [
+                    '-p', '443',
+                    `-R0:127.0.0.1:${port}`,
+                    '-o', 'StrictHostKeyChecking=no',
+                    '-o', 'ServerAliveInterval=30',
+                    `${user}@${host}`,
+                ];
+            }
+
+            const proc = spawn(cmd, args, {
                 stdio: ['pipe', 'pipe', 'pipe'],
                 env: { ...process.env },
             });
