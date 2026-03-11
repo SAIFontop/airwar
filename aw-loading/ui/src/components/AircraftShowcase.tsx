@@ -1,9 +1,19 @@
 import { motion } from 'framer-motion'
-import { AIRCRAFT, useStore } from '../store'
+import { useStore } from '../store'
+import { IconBomber, IconCAS, IconChevronLeft, IconChevronRight, IconDrone, IconFighter, IconJet, IconStealth } from './Icons'
+
+const AIRCRAFT_ICONS: Record<string, React.ReactNode> = {
+    fighter: <IconFighter size={48} className="text-amber-400" />,
+    stealth: <IconStealth size={48} className="text-blue-400" />,
+    jet: <IconJet size={48} className="text-cyan-400" />,
+    bomber: <IconBomber size={48} className="text-red-400" />,
+    drone: <IconDrone size={48} className="text-emerald-400" />,
+    cas: <IconCAS size={48} className="text-orange-400" />,
+}
 
 export function AircraftShowcase() {
-    const { currentAircraft, nextAircraft, prevAircraft } = useStore()
-    const ac = AIRCRAFT[currentAircraft]
+    const { currentAircraft, nextAircraft, prevAircraft, config } = useStore()
+    const ac = config.aircraft[currentAircraft]
 
     return (
         <motion.div
@@ -18,7 +28,7 @@ export function AircraftShowcase() {
                     AIRCRAFT DATABASE
                 </h3>
                 <span className="font-mono text-[10px] text-gray-500">
-                    {currentAircraft + 1}/{AIRCRAFT.length}
+                    {currentAircraft + 1}/{config.aircraft.length}
                 </span>
             </div>
 
@@ -31,7 +41,9 @@ export function AircraftShowcase() {
                 className="text-center mb-3"
             >
                 {/* Aircraft icon */}
-                <div className="text-5xl mb-2 animate-float">{ac.image}</div>
+                <div className="flex justify-center mb-2 animate-float">
+                    {AIRCRAFT_ICONS[ac.icon] || <IconJet size={48} className="text-gray-400" />}
+                </div>
                 <h4 className="font-display text-lg font-bold text-white">{ac.name}</h4>
                 <p className="font-mono text-[10px] text-gray-400 uppercase tracking-wider">{ac.type}</p>
             </motion.div>
@@ -53,11 +65,11 @@ export function AircraftShowcase() {
             <div className="flex justify-center gap-3 mt-3">
                 <button
                     onClick={prevAircraft}
-                    className="w-7 h-7 rounded border border-gray-700/50 flex items-center justify-center text-gray-400 hover:text-aw-accent hover:border-aw-accent/30 transition-colors text-xs"
+                    className="w-7 h-7 rounded border border-gray-700/50 flex items-center justify-center text-gray-400 hover:text-aw-accent hover:border-aw-accent/30 transition-colors"
                 >
-                    ◀
+                    <IconChevronLeft size={14} />
                 </button>
-                {AIRCRAFT.map((_, i) => (
+                {config.aircraft.map((_, i) => (
                     <div
                         key={i}
                         className={`w-1.5 h-1.5 rounded-full transition-colors ${i === currentAircraft ? 'bg-aw-accent' : 'bg-gray-700'
@@ -66,9 +78,9 @@ export function AircraftShowcase() {
                 ))}
                 <button
                     onClick={nextAircraft}
-                    className="w-7 h-7 rounded border border-gray-700/50 flex items-center justify-center text-gray-400 hover:text-aw-accent hover:border-aw-accent/30 transition-colors text-xs"
+                    className="w-7 h-7 rounded border border-gray-700/50 flex items-center justify-center text-gray-400 hover:text-aw-accent hover:border-aw-accent/30 transition-colors"
                 >
-                    ▶
+                    <IconChevronRight size={14} />
                 </button>
             </div>
         </motion.div>

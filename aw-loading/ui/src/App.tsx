@@ -14,7 +14,10 @@ import { Tips } from './components/Tips'
 import { useStore } from './store'
 
 export default function App() {
-    const { shutdownTriggered, setProgress, setResources, setConnected, setServerStatus, triggerShutdown } = useStore()
+    const { shutdownTriggered, setProgress, setResources, setConnected, setServerStatus, triggerShutdown, loadConfig, config, configLoaded } = useStore()
+
+    // Load config on mount
+    useEffect(() => { loadConfig() }, [loadConfig])
 
     // Simulate loading progress
     useEffect(() => {
@@ -83,10 +86,10 @@ export default function App() {
                     transition={{ duration: 2, ease: 'easeInOut' }}
                 >
                     {/* Background layers */}
-                    <ParticleBackground />
+                    {config.showParticles && <ParticleBackground />}
                     <div className="scan-overlay" />
                     <div className="vignette" />
-                    <JetFlyby />
+                    {config.showJetFlyby && <JetFlyby />}
 
                     {/* Ambient gradient background */}
                     <div className="fixed inset-0 z-0">
@@ -124,9 +127,9 @@ export default function App() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 2 }}
                         >
-                            <MusicPlayer />
+                            {config.showMusicPlayer ? <MusicPlayer /> : <div />}
                             <div className="font-mono text-[10px] text-gray-600">
-                                v2.0.0 | FiveM
+                                {config.version} | FiveM
                             </div>
                         </motion.div>
 
@@ -134,7 +137,7 @@ export default function App() {
                         <div className="flex-1 flex flex-col items-center justify-center gap-8 px-6">
                             <Logo />
                             <ProgressBar />
-                            <Tips />
+                            {config.showTips && <Tips />}
                         </div>
 
                         {/* Bottom panels - 3 column layout */}
@@ -142,8 +145,8 @@ export default function App() {
                             <div className="flex justify-between items-end gap-4">
                                 {/* Left column */}
                                 <div className="flex flex-col gap-3 w-80">
-                                    <AircraftShowcase />
-                                    <PlayerStats />
+                                    {config.showAircraftShowcase && <AircraftShowcase />}
+                                    {config.showPlayerStats && <PlayerStats />}
                                 </div>
 
                                 {/* Center - Keyboard shortcuts hint */}
@@ -154,15 +157,15 @@ export default function App() {
                                     transition={{ delay: 3 }}
                                 >
                                     <div className="font-mono text-[9px] text-gray-600 tracking-wider">
-                                        AIRWAR © 2026
+                                        {config.title} © 2026
                                     </div>
                                 </motion.div>
 
                                 {/* Right column */}
                                 <div className="flex flex-col gap-3 w-80">
-                                    <ServerInfo />
-                                    <NewsPanel />
-                                    <KeyboardShortcuts />
+                                    {config.showServerInfo && <ServerInfo />}
+                                    {config.showNewsPanel && <NewsPanel />}
+                                    {config.showKeyboardShortcuts && <KeyboardShortcuts />}
                                 </div>
                             </div>
                         </div>

@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react'
 import { useStore } from '../store'
 
 export function NewsPanel() {
-    const { news } = useStore()
+    const { config } = useStore()
+    const news = config.news
     const [current, setCurrent] = useState(0)
 
     useEffect(() => {

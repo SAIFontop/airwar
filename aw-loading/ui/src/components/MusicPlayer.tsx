@@ -72,7 +72,16 @@ export function MusicPlayer() {
                 onClick={toggleMusic}
                 className="text-xs text-gray-400 hover:text-aw-accent transition-colors"
             >
-                {musicPlaying ? '⏸' : '▶'}
+                {musicPlaying ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="6" y="4" width="4" height="16" />
+                        <rect x="14" y="4" width="4" height="16" />
+                    </svg>
+                ) : (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="5,3 19,12 5,21" />
+                    </svg>
+                )}
             </button>
 
             {/* Volume slider */}

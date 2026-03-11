@@ -1,16 +1,17 @@
 import { motion } from 'framer-motion'
 import { useStore } from '../store'
+import { IconChart, IconJet, IconMedal, IconStar, IconTarget, IconTrophy } from './Icons'
 
 export function PlayerStats() {
     const { playerStats } = useStore()
 
     const stats = [
-        { label: 'Total Kills', value: playerStats.kills.toString(), icon: '🎯' },
-        { label: 'Flight Hours', value: playerStats.flightHours.toFixed(1) + 'h', icon: '✈️' },
-        { label: 'Best Aircraft', value: playerStats.bestAircraft, icon: '🏆' },
-        { label: 'Rank', value: playerStats.rank, icon: '⭐' },
-        { label: 'K/D Ratio', value: (playerStats.kills / Math.max(playerStats.deaths, 1)).toFixed(2), icon: '📊' },
-        { label: 'Victories', value: playerStats.wins.toString(), icon: '🏅' },
+        { label: 'Total Kills', value: playerStats.kills.toString(), icon: <IconTarget size={14} /> },
+        { label: 'Flight Hours', value: playerStats.flightHours.toFixed(1) + 'h', icon: <IconJet size={14} /> },
+        { label: 'Best Aircraft', value: playerStats.bestAircraft, icon: <IconTrophy size={14} /> },
+        { label: 'Rank', value: playerStats.rank, icon: <IconStar size={14} /> },
+        { label: 'K/D Ratio', value: (playerStats.kills / Math.max(playerStats.deaths, 1)).toFixed(2), icon: <IconChart size={14} /> },
+        { label: 'Victories', value: playerStats.wins.toString(), icon: <IconMedal size={14} /> },
     ]
 
     return (
@@ -34,7 +35,7 @@ export function PlayerStats() {
                         transition={{ delay: 1.6 + i * 0.1 }}
                     >
                         <div className="flex items-center gap-1 mb-1">
-                            <span className="text-xs">{stat.icon}</span>
+                            <span className="text-aw-accent">{stat.icon}</span>
                             <span className="font-mono text-[9px] text-gray-500 uppercase">{stat.label}</span>
                         </div>
                         <p className="font-display text-sm font-bold text-white">{stat.value}</p>

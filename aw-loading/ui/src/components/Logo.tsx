@@ -1,6 +1,9 @@
 import { motion } from 'framer-motion'
+import { useStore } from '../store'
 
 export function Logo() {
+    const { config } = useStore()
+
     return (
         <motion.div
             className="flex flex-col items-center gap-2"
@@ -15,7 +18,7 @@ export function Logo() {
                 transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
             >
                 <h1 className="font-display text-6xl md:text-7xl font-black tracking-[0.3em] text-glow text-aw-accent">
-                    AIRWAR
+                    {config.title}
                 </h1>
 
                 {/* Metallic shine sweep */}
@@ -43,7 +46,7 @@ export function Logo() {
                 animate={{ opacity: 1, letterSpacing: '0.5em' }}
                 transition={{ delay: 0.8, duration: 1 }}
             >
-                Combat Aviation Server
+                {config.subtitle}
             </motion.p>
 
             {/* Decorative line */}

@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useStore } from '../store';
+import { IconClock, IconServer, IconSignal, IconUsers } from './Icons';
 
 export function ServerInfo() {
     const { serverStatus } = useStore()
@@ -17,23 +18,23 @@ export function ServerInfo() {
 
             <div className="space-y-3">
                 <StatusRow
-                    icon="👥"
+                    icon={<IconUsers size={16} />}
                     label="Players Online"
                     value={`${serverStatus.players} / ${serverStatus.maxPlayers}`}
                 />
                 <StatusRow
-                    icon="📡"
+                    icon={<IconServer size={16} />}
                     label="Server Status"
                     value={serverStatus.status.toUpperCase()}
                     valueColor={serverStatus.status === 'online' ? '#22c55e' : '#f59e0b'}
                 />
                 <StatusRow
-                    icon="📶"
+                    icon={<IconSignal size={16} />}
                     label="Ping"
                     value={`${serverStatus.ping}ms`}
                 />
                 <StatusRow
-                    icon="⏱️"
+                    icon={<IconClock size={16} />}
                     label="Uptime"
                     value={serverStatus.uptime}
                 />
@@ -57,12 +58,12 @@ export function ServerInfo() {
 function StatusRow({
     icon, label, value, valueColor,
 }: {
-    icon: string; label: string; value: string; valueColor?: string
+    icon: React.ReactNode; label: string; value: string; valueColor?: string
 }) {
     return (
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-                <span className="text-sm">{icon}</span>
+                <span className="text-gray-400">{icon}</span>
                 <span className="font-mono text-[11px] text-gray-400">{label}</span>
             </div>
             <span className="font-mono text-[11px] font-medium" style={{ color: valueColor || '#e5e7eb' }}>

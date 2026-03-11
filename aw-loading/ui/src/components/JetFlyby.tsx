@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { IconJet } from './Icons'
 
 export function JetFlyby() {
     return (
@@ -15,8 +16,8 @@ export function JetFlyby() {
                 transition={{ duration: 18, repeat: Infinity, ease: 'linear', repeatDelay: 8 }}
             >
                 <div className="relative">
-                    <div className="text-4xl opacity-60" style={{ filter: 'drop-shadow(0 0 10px rgba(245,158,11,0.5))' }}>
-                        ✈️
+                    <div className="opacity-60 text-amber-400" style={{ filter: 'drop-shadow(0 0 10px rgba(245,158,11,0.5))' }}>
+                        <IconJet size={40} />
                     </div>
                     {/* Contrail */}
                     <div
@@ -42,7 +43,9 @@ export function JetFlyby() {
                 transition={{ duration: 25, repeat: Infinity, ease: 'linear', repeatDelay: 15 }}
             >
                 <div className="relative opacity-30">
-                    <div className="text-2xl" style={{ transform: 'scaleX(-1)' }}>✈️</div>
+                    <div className="text-gray-400" style={{ transform: 'scaleX(-1)' }}>
+                        <IconJet size={28} />
+                    </div>
                     <div
                         className="absolute top-1/2 left-full -translate-y-1/2"
                         style={{

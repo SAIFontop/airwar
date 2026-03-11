@@ -1,17 +1,21 @@
 import { motion } from 'framer-motion'
+import { useStore } from '../store'
+import { IconFlame, IconFlare, IconGun, IconJet, IconMissile, IconRadar, IconScoreboard, IconThrottle } from './Icons'
 
-const controls = [
-    { key: 'Mouse 1', action: 'Fire Guns', icon: '🔫' },
-    { key: 'Mouse 2', action: 'Lock & Fire Missile', icon: '🚀' },
-    { key: 'G', action: 'Deploy Flares', icon: '✨' },
-    { key: 'R', action: 'Toggle Radar', icon: '📡' },
-    { key: 'F', action: 'Afterburner', icon: '🔥' },
-    { key: 'TAB', action: 'Scoreboard', icon: '📊' },
-    { key: 'E', action: 'Enter/Exit Aircraft', icon: '✈️' },
-    { key: 'SHIFT', action: 'Throttle Up', icon: '⬆️' },
-]
+const CONTROL_ICONS: Record<string, React.ReactNode> = {
+    gun: <IconGun size={14} />,
+    missile: <IconMissile size={14} />,
+    flare: <IconFlare size={14} />,
+    radar: <IconRadar size={14} />,
+    flame: <IconFlame size={14} />,
+    scoreboard: <IconScoreboard size={14} />,
+    jet: <IconJet size={14} />,
+    throttle: <IconThrottle size={14} />,
+}
 
 export function KeyboardShortcuts() {
+    const { config } = useStore()
+
     return (
         <motion.div
             className="glass rounded-lg p-4 w-full max-w-xs"
@@ -24,7 +28,7 @@ export function KeyboardShortcuts() {
             </h3>
 
             <div className="space-y-1.5">
-                {controls.map((ctrl, i) => (
+                {config.controls.map((ctrl, i) => (
                     <motion.div
                         key={ctrl.key}
                         className="flex items-center justify-between"
@@ -33,7 +37,7 @@ export function KeyboardShortcuts() {
                         transition={{ delay: 2 + i * 0.05 }}
                     >
                         <div className="flex items-center gap-2">
-                            <span className="text-xs">{ctrl.icon}</span>
+                            <span className="text-gray-400">{CONTROL_ICONS[ctrl.icon] || <IconJet size={14} />}</span>
                             <span className="font-mono text-[11px] text-gray-400">{ctrl.action}</span>
                         </div>
                         <kbd className="px-1.5 py-0.5 rounded bg-gray-800/60 border border-gray-700/30 font-mono text-[10px] text-aw-accent">

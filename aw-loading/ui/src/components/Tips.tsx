@@ -1,14 +1,15 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect } from 'react'
-import { TIPS, useStore } from '../store'
+import { useStore } from '../store'
+import { IconLightbulb } from './Icons'
 
 export function Tips() {
-    const { currentTip, nextTip } = useStore()
+    const { currentTip, nextTip, config } = useStore()
 
     useEffect(() => {
-        const interval = setInterval(nextTip, 6000)
+        const interval = setInterval(nextTip, config.tipRotationMs)
         return () => clearInterval(interval)
-    }, [nextTip])
+    }, [nextTip, config.tipRotationMs])
 
     return (
         <motion.div
@@ -17,9 +18,14 @@ export function Tips() {
             animate={{ opacity: 1 }}
             transition={{ delay: 2 }}
         >
-            <span className="font-display text-[10px] text-aw-accent font-bold tracking-wider shrink-0">
-                TIP
-            </span>
+            <div className="flex items-center gap-2 shrink-0">
+                <span className="text-aw-accent">
+                    <IconLightbulb size={14} />
+                </span>
+                <span className="font-display text-[10px] text-aw-accent font-bold tracking-wider">
+                    TIP
+                </span>
+            </div>
             <div className="h-3 w-px bg-gray-700" />
             <AnimatePresence mode="wait">
                 <motion.p
@@ -30,7 +36,7 @@ export function Tips() {
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.4 }}
                 >
-                    💡 {TIPS[currentTip]}
+                    {config.tips[currentTip]}
                 </motion.p>
             </AnimatePresence>
         </motion.div>
