@@ -926,127 +926,95 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
         }
     });
 
-    // ═══ Pinggy Tunnel (TCP + UDP for FiveM) ═══
+    // ═══ Pinggy Tunnel (TCP for FiveM) ═══
 
-    let pinggyTcpProcess: import('child_process').ChildProcess | null = null;
-    let pinggyUdpProcess: import('child_process').ChildProcess | null = null;
-    let pinggyTcpUrl = '';
-    let pinggyUdpUrl = '';
+    let pinggyProcess: import('child_process').ChildProcess | null = null;
+    let pinggyUrl = '';
 
-    function spawnPinggyTunnel(port: number, token: string, protocol: 'tcp' | 'udp'): Promise<{ url: string; output: string }> {
-        return new Promise((res, rej) => {
-            const host = token ? 'pro.pinggy.io' : 'a.pinggy.io';
-            const user = token ? `${token}+${protocol}` : protocol;
+    app.post<{ Body: { port?: number; token?: string } }>(
+        '/api/tunnel/start',
+        { preHandler: requireRole('owner') },
+        async (request) => {
+            if (pinggyProcess) return { success: false, error: 'Tunnel already running' };
 
-            let cmd: string;
-            let args: string[];
+            const port = request.body.port || 30120;
+            const token = request.body.token || '';
 
-            if (protocol === 'udp') {
-                // UDP tunnel requires Pinggy CLI (not SSH)
-                cmd = 'pinggy';
-                args = [
-                    '-p', '443',
-                    `-R0:127.0.0.1:${port}`,
-                    `${user}@${host}`,
-                ];
-            } else {
-                // TCP tunnel uses SSH
-                cmd = 'ssh';
-                args = [
+            return new Promise((res) => {
+                const host = token ? 'pro.pinggy.io' : 'a.pinggy.io';
+                const user = token ? `${token}+tcp` : 'tcp';
+                const args = [
                     '-p', '443',
                     `-R0:127.0.0.1:${port}`,
                     '-o', 'StrictHostKeyChecking=no',
                     '-o', 'ServerAliveInterval=30',
                     `${user}@${host}`,
                 ];
-            }
 
-            const proc = spawn(cmd, args, {
-                stdio: ['pipe', 'pipe', 'pipe'],
-                env: { ...process.env },
-            });
-
-            if (protocol === 'tcp') pinggyTcpProcess = proc;
-            else pinggyUdpProcess = proc;
-
-            let output = '';
-            let resolved = false;
-
-            const onData = (data: Buffer) => {
-                output += data.toString();
-                const urlMatch = output.match(/((?:tcp|udp|https?):\/\/[^\s]+)/);
-                if (urlMatch && !resolved) {
-                    resolved = true;
-                    res({ url: urlMatch[1], output });
+                try {
+                    pinggyProcess = spawn('ssh', args, {
+                        stdio: ['pipe', 'pipe', 'pipe'],
+                        env: { ...process.env },
+                    });
+                } catch (e: any) {
+                    res({ success: false, error: `Failed to spawn ssh: ${e.message}` });
+                    return;
                 }
-            };
 
-            proc.stdout?.on('data', onData);
-            proc.stderr?.on('data', onData);
+                let output = '';
+                let resolved = false;
 
-            proc.on('exit', () => {
-                if (protocol === 'tcp') { pinggyTcpProcess = null; pinggyTcpUrl = ''; }
-                else { pinggyUdpProcess = null; pinggyUdpUrl = ''; }
-                if (!resolved) {
-                    resolved = true;
-                    rej(new Error(`${protocol.toUpperCase()} tunnel exited: ${output.slice(-500)}`));
-                }
-            });
+                pinggyProcess.on('error', (err) => {
+                    pinggyProcess = null;
+                    pinggyUrl = '';
+                    if (!resolved) {
+                        resolved = true;
+                        res({ success: false, error: `SSH error: ${err.message}` });
+                    }
+                });
 
-            setTimeout(() => {
-                if (!resolved) {
-                    resolved = true;
-                    const m = output.match(/((?:tcp|udp|https?):\/\/[^\s]+)/);
-                    res({ url: m ? m[1] : 'connecting...', output: output.slice(-500) });
-                }
-            }, 20000);
-        });
-    }
-
-    app.post<{ Body: { port?: number; token?: string } }>(
-        '/api/tunnel/start',
-        { preHandler: requireRole('owner') },
-        async (request) => {
-            if (pinggyTcpProcess || pinggyUdpProcess) return { success: false, error: 'Tunnel already running' };
-
-            const port = request.body.port || 30120;
-            const token = request.body.token || '';
-
-            try {
-                // Start both TCP and UDP tunnels for FiveM
-                const [tcpResult, udpResult] = await Promise.all([
-                    spawnPinggyTunnel(port, token, 'tcp'),
-                    spawnPinggyTunnel(port, token, 'udp'),
-                ]);
-
-                pinggyTcpUrl = tcpResult.url;
-                pinggyUdpUrl = udpResult.url;
-
-                return {
-                    success: true,
-                    data: {
-                        url: pinggyTcpUrl,
-                        udpUrl: pinggyUdpUrl,
-                        port,
-                        note: 'TCP + UDP tunnels active (FiveM requires both)',
-                    },
+                const onData = (data: Buffer) => {
+                    output += data.toString();
+                    const urlMatch = output.match(/((?:tcp|https?):\/\/[^\s]+)/);
+                    if (urlMatch && !resolved) {
+                        resolved = true;
+                        pinggyUrl = urlMatch[1];
+                        res({ success: true, data: { url: pinggyUrl, port } });
+                    }
                 };
-            } catch (err: any) {
-                // Cleanup if one fails
-                (pinggyTcpProcess as any)?.kill?.();
-                (pinggyUdpProcess as any)?.kill?.();
-                pinggyTcpProcess = null;
-                pinggyUdpProcess = null;
-                pinggyTcpUrl = '';
-                pinggyUdpUrl = '';
-                return { success: false, error: err.message };
-            }
+
+                pinggyProcess.stdout?.on('data', onData);
+                pinggyProcess.stderr?.on('data', onData);
+
+                pinggyProcess.on('exit', () => {
+                    pinggyProcess = null;
+                    pinggyUrl = '';
+                    if (!resolved) {
+                        resolved = true;
+                        res({ success: false, error: `Tunnel exited: ${output.slice(-500)}` });
+                    }
+                });
+
+                setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        if (output.includes('://')) {
+                            const m = output.match(/((?:tcp|https?):\/\/[^\s]+)/);
+                            if (m) pinggyUrl = m[1];
+                        }
+                        res({ success: true, data: { url: pinggyUrl || 'connecting...', port, output: output.slice(-500) } });
+                    }
+                }, 20000);
+            });
         },
     );
 
     app.post('/api/tunnel/stop', { preHandler: requireRole('owner') }, async () => {
-        if (pinggyTcpProcess) { pinggyTcpProcess.kill(); pinggyTcpProcess = null; pinggyTcpUrl = ''; }
-        if (pinggyUdpProcess) { pinggyUdpProcess.kill(); pinggyUdpProcess = null; pinggyUdpUrl = ''; }
+        if (pinggyProcess) {
+            pinggyProcess.kill();
+            pinggyProcess = null;
+            pinggyUrl = '';
+        }
         return { success: true };
     });
 
@@ -1054,11 +1022,8 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
         return {
             success: true,
             data: {
-                active: pinggyTcpProcess !== null || pinggyUdpProcess !== null,
-                url: pinggyTcpUrl,
-                udpUrl: pinggyUdpUrl,
-                tcp: pinggyTcpProcess !== null,
-                udp: pinggyUdpProcess !== null,
+                active: pinggyProcess !== null,
+                url: pinggyUrl,
             },
         };
     });
@@ -1089,13 +1054,27 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
                     ...(user ? [`${user}@${host}`] : [host]),
                 ];
 
-                panelTunnelProcess = spawn('ssh', args, {
-                    stdio: ['pipe', 'pipe', 'pipe'],
-                    env: { ...process.env },
-                });
+                try {
+                    panelTunnelProcess = spawn('ssh', args, {
+                        stdio: ['pipe', 'pipe', 'pipe'],
+                        env: { ...process.env },
+                    });
+                } catch (e: any) {
+                    res({ success: false, error: `Failed to spawn ssh: ${e.message}` });
+                    return;
+                }
 
                 let output = '';
                 let resolved = false;
+
+                panelTunnelProcess.on('error', (err) => {
+                    panelTunnelProcess = null;
+                    panelTunnelUrl = '';
+                    if (!resolved) {
+                        resolved = true;
+                        res({ success: false, error: `SSH error: ${err.message}` });
+                    }
+                });
 
                 const onData = (data: Buffer) => {
                     output += data.toString();
