@@ -1,0 +1,179 @@
+.hud-container {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    font-family: 'Consolas', 'Courier New', monospace;
+    color: #00ff88;
+    text-shadow: 0 0 4px rgba(0, 255, 136, 0.5);
+}
+
+.hud-left {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.hud-right {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 180px;
+}
+
+.hud-gauge {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.hud-label {
+    font-size: 10px;
+    opacity: 0.7;
+    min-width: 32px;
+}
+
+.hud-value {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.hud-unit {
+    font-size: 10px;
+    opacity: 0.5;
+}
+
+.hud-pct {
+    font-size: 10px;
+    min-width: 30px;
+    text-align: right;
+}
+
+.hud-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.hud-bar-track {
+    flex: 1;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.hud-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.2s;
+}
+
+.hud-bar-fill.fuel {
+    background: #00ff88;
+}
+
+.hud-bar-fill.throttle {
+    background: #ffaa00;
+}
+
+.hud-bar-fill.health {
+    background: #00ff88;
+}
+
+.hud-bar-fill.health.damaged {
+    background: #ffaa00;
+}
+
+.hud-bar-fill.health.critical {
+    background: #ff3333;
+    animation: blink 0.5s infinite;
+}
+
+.hud-warnings {
+    position: absolute;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.hud-warning {
+    color: #ff3333;
+    font-size: 14px;
+    font-weight: bold;
+    text-shadow: 0 0 8px rgba(255, 50, 50, 0.8);
+    animation: blink 0.7s infinite;
+}
+
+.hud-bottom {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.hud-weapon {
+    display: flex;
+    gap: 8px;
+}
+
+.hud-hp {
+    padding: 4px 8px;
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    border-radius: 3px;
+    font-size: 11px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.hud-hp.selected {
+    border-color: #00ff88;
+    background: rgba(0, 255, 136, 0.1);
+}
+
+.hud-hp.empty {
+    opacity: 0.3;
+}
+
+.hud-hp-name {
+    font-size: 10px;
+}
+
+.hud-hp-ammo {
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.hud-cm {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+}
+
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
+}

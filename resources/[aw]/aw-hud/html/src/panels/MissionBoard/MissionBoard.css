@@ -1,0 +1,190 @@
+.mboard-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.mboard-panel {
+    background: rgba(10, 15, 25, 0.97);
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    border-radius: 8px;
+    padding: 24px;
+    width: 560px;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+}
+
+.mboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.mboard-header h2 {
+    color: #00ff88;
+    font-size: 14px;
+    letter-spacing: 2px;
+}
+
+.mboard-close {
+    cursor: pointer;
+    font-size: 16px;
+    opacity: 0.5;
+}
+
+.mboard-close:hover {
+    opacity: 1;
+}
+
+/* Current Mission */
+.mboard-current {
+    background: rgba(0, 255, 136, 0.06);
+    border: 1px solid rgba(0, 255, 136, 0.2);
+    border-radius: 6px;
+    padding: 14px;
+    margin-bottom: 20px;
+}
+
+.mboard-current-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.mboard-current-name {
+    flex: 1;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+.mboard-leave-btn {
+    background: rgba(255, 50, 50, 0.2);
+    border: 1px solid rgba(255, 50, 50, 0.4);
+    color: #ff5050;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: bold;
+    font-family: inherit;
+}
+
+.mboard-leave-btn:hover {
+    background: rgba(255, 50, 50, 0.35);
+}
+
+.mboard-type-badge {
+    font-size: 9px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border: 1px solid;
+    border-radius: 3px;
+    color: #ccc;
+    white-space: nowrap;
+}
+
+.mboard-objectives {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mboard-objective {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #ccc;
+}
+
+.mboard-objective.done {
+    color: #00ff88;
+    opacity: 0.7;
+}
+
+.mboard-obj-check {
+    width: 14px;
+    text-align: center;
+}
+
+.mboard-obj-desc {
+    flex: 1;
+}
+
+.mboard-obj-progress {
+    font-size: 11px;
+    color: #888;
+}
+
+/* Available */
+.mboard-available h3 {
+    color: #888;
+    font-size: 10px;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+}
+
+.mboard-empty {
+    text-align: center;
+    font-size: 12px;
+    color: #555;
+    padding: 30px 0;
+}
+
+.mboard-mission-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 8px;
+}
+
+.mboard-mission-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.mboard-mission-name {
+    font-weight: bold;
+    font-size: 13px;
+}
+
+.mboard-mission-rewards {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: #00ff88;
+    margin-bottom: 8px;
+}
+
+.mboard-join-btn {
+    background: rgba(0, 255, 136, 0.15);
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    color: #00ff88;
+    padding: 6px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: bold;
+    font-family: inherit;
+    width: 100%;
+}
+
+.mboard-join-btn:hover:not(:disabled) {
+    background: rgba(0, 255, 136, 0.25);
+}
+
+.mboard-join-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}

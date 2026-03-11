@@ -1,0 +1,106 @@
+.scoreboard-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 90;
+}
+
+.scoreboard-panel {
+    background: rgba(10, 15, 25, 0.95);
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    border-radius: 8px;
+    padding: 20px;
+    min-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.scoreboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.scoreboard-header h2 {
+    color: #00ff88;
+    font-size: 14px;
+    letter-spacing: 2px;
+}
+
+.scoreboard-round {
+    font-size: 11px;
+    color: #888;
+}
+
+.scoreboard-faction-scores {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.scoreboard-faction-chip {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 4px 10px;
+    border: 1px solid;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.scoreboard-faction-val {
+    color: #fff;
+    font-size: 14px;
+}
+
+.scoreboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.scoreboard-table th {
+    text-align: left;
+    color: #00ff88;
+    font-size: 10px;
+    letter-spacing: 1px;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+    padding: 6px 8px;
+}
+
+.scoreboard-table td {
+    padding: 5px 8px;
+    color: #ddd;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.scoreboard-table tbody tr:hover {
+    background: rgba(0, 255, 136, 0.05);
+}
+
+.scoreboard-callsign {
+    font-weight: bold;
+    color: #fff;
+}
+
+.scoreboard-faction-tag {
+    font-size: 10px;
+    font-weight: bold;
+}
+
+.scoreboard-score {
+    font-weight: bold;
+    color: #00ff88;
+}
+
+.scoreboard-footer {
+    margin-top: 12px;
+    text-align: center;
+    font-size: 11px;
+    color: #666;
+}

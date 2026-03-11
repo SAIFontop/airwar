@@ -1,0 +1,49 @@
+.killfeed-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    pointer-events: none;
+    max-width: 350px;
+}
+
+.killfeed-entry {
+    display: flex;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: 'Segoe UI', sans-serif;
+    animation: killfeed-in 0.3s ease-out;
+}
+
+.killfeed-killer {
+    color: #ff6b6b;
+    font-weight: bold;
+}
+
+.killfeed-weapon {
+    color: #aaa;
+    font-size: 10px;
+    align-self: center;
+}
+
+.killfeed-victim {
+    color: #6bc5ff;
+    font-weight: bold;
+}
+
+@keyframes killfeed-in {
+    from {
+        transform: translateX(50px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
