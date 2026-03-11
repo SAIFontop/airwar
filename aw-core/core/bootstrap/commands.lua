@@ -56,17 +56,29 @@ function Core.Command._init()
     -- Built-in /help
     Core.Command.Register('help', 'Show available commands', nil, function(source)
         local cmds = Core.Command.GetAll()
-        local lines = { AW.PREFIX .. 'Commands:' }
-        for _, cmd in ipairs(cmds) do
-            if not cmd.permission or (source ~= 0 and Core.Permission.Has(source, cmd.permission)) then
-                lines[#lines + 1] = string.format('  /%s — %s', cmd.name, cmd.description)
-            end
-        end
-        local msg = table.concat(lines, '\n')
+
         if source == 0 then
-            print(msg)
-        else
-            TriggerClientEvent('chat:addMessage', source, { args = { msg } })
+            print(AW.PREFIX .. 'Commands:')
+            for _, cmd in ipairs(cmds) do
+                print(string.format('  /%s — %s', cmd.name, cmd.description))
+            end
+            return
+        end
+
+        TriggerClientEvent('chat:addMessage', source, {
+            color = { 255, 180, 0 },
+            multiline = true,
+            args = { '[AW]', 'Available Commands:' }
+        })
+
+        for _, cmd in ipairs(cmds) do
+            if not cmd.permission or Core.Permission.Has(source, cmd.permission) then
+                TriggerClientEvent('chat:addMessage', source, {
+                    color = { 200, 200, 200 },
+                    multiline = true,
+                    args = { '', string.format('^3/%s ^0— %s', cmd.name, cmd.description) }
+                })
+            end
         end
     end)
 
