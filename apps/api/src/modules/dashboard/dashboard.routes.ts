@@ -261,7 +261,10 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
             if (!profile) return { success: false, error: 'لا يوجد بروفايل نشط' };
 
             const { name, action } = request.body;
-            const command = `${action} ${name}`;
+            // FiveM registers resources by folder name only, not by path.
+            // Strip [category]/ prefix (e.g. "[aw]/aw-hud" → "aw-hud")
+            const resourceName = name.includes('/') ? name.split('/').pop()! : name;
+            const command = `${action} ${resourceName}`;
             const manager = getServerManager(profile);
 
             if (profile.panelBridgeInstalled) {
