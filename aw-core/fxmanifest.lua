@@ -2,7 +2,7 @@ fx_version 'cerulean'
 game 'gta5'
 lua54 'yes'
 
-name 'aw-fivem'
+name 'aw-core'
 description 'AW Core Framework'
 author 'AIRWAR'
 version '2.0.0'

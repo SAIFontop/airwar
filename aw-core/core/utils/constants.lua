@@ -1,6 +1,6 @@
 AW = {
     VERSION = '2.0.0',
-    NAME    = 'aw-fivem',
+    NAME    = 'aw-core',
     PREFIX  = '^3[AW] ^0',
 
     RANK = {

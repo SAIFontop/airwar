@@ -79,7 +79,7 @@ CreateThread(function()
 end)
 
 -- ═══════════════════════════════════════════════════════════
--- Exports (external resources access via exports['aw-fivem'])
+-- Exports (external resources access via exports['aw-core'])
 -- ═══════════════════════════════════════════════════════════
 
 -- Lifecycle

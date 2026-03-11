@@ -13,7 +13,7 @@ export function offNUI(type: string, handler: NUIHandler) {
 }
 
 export async function fetchNUI(event: string, data?: any): Promise<any> {
-    const resourceName = (window as any).GetParentResourceName?.() || 'aw-fivem'
+    const resourceName = (window as any).GetParentResourceName?.() || 'aw-core'
     const resp = await fetch(`https://${resourceName}/${event}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
