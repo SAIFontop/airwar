@@ -941,14 +941,17 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
             const token = request.body.token || '';
 
             return new Promise((res) => {
-                const args = ['-p', '443', '-R0', '-o', 'StrictHostKeyChecking=no'];
-                if (token) {
-                    args.push(`${token}+tcp@a.pinggy.io`);
-                } else {
-                    args.push('tcp@a.pinggy.io');
-                }
+                const host = token ? 'pro.pinggy.io' : 'a.pinggy.io';
+                const user = token ? token : 'tcp';
+                const args = [
+                    '-p', '443',
+                    `-R0:127.0.0.1:${port}`,
+                    '-o', 'StrictHostKeyChecking=no',
+                    '-o', 'ServerAliveInterval=30',
+                    `${user}@${host}`,
+                ];
 
-                pinggyProcess = spawn('ssh', [...args], {
+                pinggyProcess = spawn('ssh', args, {
                     stdio: ['pipe', 'pipe', 'pipe'],
                     env: { ...process.env },
                 });
@@ -958,8 +961,8 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
 
                 const onData = (data: Buffer) => {
                     output += data.toString();
-                    // Look for the tunnel URL in output
-                    const urlMatch = output.match(/(tcp:\/\/[^\s]+)/);
+                    // Look for the tunnel URL in output (tcp:// or https:// or http://)
+                    const urlMatch = output.match(/((?:tcp|https?):\/\/[^\s]+)/);
                     if (urlMatch && !resolved) {
                         resolved = true;
                         pinggyUrl = urlMatch[1];
@@ -970,25 +973,26 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
                 pinggyProcess.stdout?.on('data', onData);
                 pinggyProcess.stderr?.on('data', onData);
 
-                // Also handle stdin prompt for pinggy
-                pinggyProcess.stdin?.write(`${port}\n`);
-
                 pinggyProcess.on('exit', () => {
                     pinggyProcess = null;
                     pinggyUrl = '';
                     if (!resolved) {
                         resolved = true;
-                        res({ success: false, error: `Tunnel exited: ${output}` });
+                        res({ success: false, error: `Tunnel exited: ${output.slice(-500)}` });
                     }
                 });
 
-                // Timeout after 15s
+                // Timeout after 20s
                 setTimeout(() => {
                     if (!resolved) {
                         resolved = true;
-                        res({ success: true, data: { url: output.includes('tcp://') ? pinggyUrl : 'connecting...', port, output } });
+                        if (output.includes('://')) {
+                            const m = output.match(/((?:tcp|https?):\/\/[^\s]+)/);
+                            if (m) pinggyUrl = m[1];
+                        }
+                        res({ success: true, data: { url: pinggyUrl || 'connecting...', port, output: output.slice(-500) } });
                     }
-                }, 15000);
+                }, 20000);
             });
         },
     );
