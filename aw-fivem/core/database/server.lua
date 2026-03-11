@@ -74,6 +74,25 @@ function Core.DB._init()
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ]])
 
+    -- Migrate: add missing columns to existing tables
+    local migrations = {
+        { AW.TABLE.PLAYERS, 'rank',      "ALTER TABLE %s ADD COLUMN rank VARCHAR(20) NOT NULL DEFAULT 'user' AFTER name" },
+        { AW.TABLE.PLAYERS, 'first_join', "ALTER TABLE %s ADD COLUMN first_join DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER rank" },
+        { AW.TABLE.PLAYERS, 'last_seen',  "ALTER TABLE %s ADD COLUMN last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER first_join" },
+        { AW.TABLE.PLAYERS, 'play_time',  "ALTER TABLE %s ADD COLUMN play_time INT NOT NULL DEFAULT 0 AFTER last_seen" },
+        { AW.TABLE.PLAYERS, 'data',       "ALTER TABLE %s ADD COLUMN data JSON DEFAULT NULL AFTER play_time" },
+    }
+    for _, m in ipairs(migrations) do
+        local exists = Core.DB.Scalar(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+            { m[1], m[2] }
+        )
+        if exists == 0 then
+            Core.DB.Execute(string.format(m[3], m[1]))
+            Core.Log.Info('db', 'Added column %s.%s', m[1], m[2])
+        end
+    end
+
     Core.DB.Execute([[
         CREATE TABLE IF NOT EXISTS ]] .. AW.TABLE.PERMISSIONS .. [[ (
             id INT AUTO_INCREMENT PRIMARY KEY,
