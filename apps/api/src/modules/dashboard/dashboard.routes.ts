@@ -942,7 +942,7 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
 
             return new Promise((res) => {
                 const host = token ? 'pro.pinggy.io' : 'a.pinggy.io';
-                const user = token ? token : 'tcp';
+                const user = token ? `${token}+tcp` : 'tcp';
                 const args = [
                     '-p', '443',
                     `-R0:127.0.0.1:${port}`,
