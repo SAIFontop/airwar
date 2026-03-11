@@ -132,6 +132,11 @@ end
 -- BUILT-IN SCHEMAS
 -- ============================================================
 
+function Validator.Init()
+    CoreLogger.Info('validator', 'Validator system initialized')
+    Validator.RegisterBuiltInSchemas()
+end
+
 function Validator.RegisterBuiltInSchemas()
     -- Aircraft type schema
     Validator.RegisterSchema('aircraft_type', {

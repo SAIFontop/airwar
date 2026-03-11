@@ -8,7 +8,8 @@
 
 -- ============================================================
 -- EXPORT BRIDGE
--- These global functions back the exports declared in fxmanifest.lua
+-- Uses runtime exports() registration so we don't shadow FiveM
+-- natives (e.g. RegisterCommand) and lua54 scoping works correctly.
 -- ============================================================
 
 local SYSTEM_MAP = {
@@ -29,101 +30,100 @@ local SYSTEM_MAP = {
     Lifecycle   = function() return CoreLifecycle end,
 }
 
---- Lifecycle: Is the framework ready?
-function IsReady()
+-- Lifecycle
+exports('IsReady', function()
     return CoreLifecycle and CoreLifecycle.IsReady() or false
-end
+end)
 
---- Lifecycle: Get the Core API facade for external resources
-function GetCoreAPI()
+exports('GetCoreAPI', function()
     return {
         GetSystem = function(name)
             local getter = SYSTEM_MAP[name]
             return getter and getter() or nil
         end,
     }
-end
+end)
 
---- Identity: Get AWID by server ID
-function GetAWID(serverId)
+-- Identity
+exports('GetAWID', function(serverId)
     if not CoreIdentity then return nil end
     local player = CoreIdentity.GetPlayerByServerId(serverId)
     return player and player.awid or nil
-end
+end)
 
---- Module registration
-function RegisterModule(moduleId, opts) return CoreAPI.RegisterModule(moduleId, opts) end
-function GetModuleState(moduleId) return CoreAPI.GetModuleInfo(moduleId) end
+-- Module registration
+exports('RegisterModule', function(moduleId, opts) return CoreAPI.RegisterModule(moduleId, opts) end)
+exports('GetModuleState', function(moduleId) return CoreAPI.GetModuleInfo(moduleId) end)
 
---- Player API
-function GetPlayer(awid) return CoreIdentity.GetPlayer(awid) end
-function GetPlayerByServerId(serverId) return CoreIdentity.GetPlayerByServerId(serverId) end
-function GetAllPlayers() return CoreIdentity.GetAllPlayers() end
-function GetPlayerCount() return CoreIdentity.GetPlayerCount() end
+-- Player API
+exports('GetPlayer', function(awid) return CoreIdentity.GetPlayer(awid) end)
+exports('GetPlayerByServerId', function(serverId) return CoreIdentity.GetPlayerByServerId(serverId) end)
+exports('GetAllPlayers', function() return CoreIdentity.GetAllPlayers() end)
+exports('GetPlayerCount', function() return CoreIdentity.GetPlayerCount() end)
 
---- State
-function GetState(key) return CoreState.GetGlobal(key) end
-function SetState(key, value) return CoreState.SetGlobal(key, value) end
+-- State
+exports('GetState', function(key) return CoreState.GetGlobal(key) end)
+exports('SetState', function(key, value) return CoreState.SetGlobal(key, value) end)
 
---- Events
-function EmitEvent(name, data) return CoreEvents.Emit(name, data) end
-function OnEvent(name, handler) return CoreEvents.On(name, handler) end
+-- Events
+exports('EmitEvent', function(name, data) return CoreEvents.Emit(name, data) end)
+exports('OnEvent', function(name, handler) return CoreEvents.On(name, handler) end)
 
---- Module router
-function CallModule(target, export, ...) return CoreAPI.Call(target, export, ...) end
+-- Module router
+exports('CallModule', function(target, export, ...) return CoreAPI.Call(target, export, ...) end)
 
---- Registry
-function RegisterType(domain, typeId, data) return CoreRegistry.Register(domain, typeId, data) end
-function GetType(domain, typeId) return CoreRegistry.Get(domain, typeId) end
-function GetAllTypes(domain) return CoreRegistry.GetAll(domain) end
+-- Registry
+exports('RegisterType', function(domain, typeId, data) return CoreRegistry.Register(domain, typeId, data) end)
+exports('GetType', function(domain, typeId) return CoreRegistry.Get(domain, typeId) end)
+exports('GetAllTypes', function(domain) return CoreRegistry.GetAll(domain) end)
 
---- Cache
-function CacheGet(ns, key) return CoreCache.Get(ns, key) end
-function CacheSet(ns, key, val, ttl) return CoreCache.Set(ns, key, val, ttl) end
-function CacheInvalidate(ns, key) return CoreCache.Invalidate(ns, key) end
+-- Cache
+exports('CacheGet', function(ns, key) return CoreCache.Get(ns, key) end)
+exports('CacheSet', function(ns, key, val, ttl) return CoreCache.Set(ns, key, val, ttl) end)
+exports('CacheInvalidate', function(ns, key) return CoreCache.Invalidate(ns, key) end)
 
---- Permissions
-function HasPermission(awid, node) return CorePermissions.HasPermission(awid, node) end
-function AddPermission(awid, node) return CorePermissions.GrantPermission(awid, node) end
-function RemovePermission(awid, node) return CorePermissions.RevokePermission(awid, node) end
+-- Permissions
+exports('HasPermission', function(awid, node) return CorePermissions.HasPermission(awid, node) end)
+exports('AddPermission', function(awid, node) return CorePermissions.GrantPermission(awid, node) end)
+exports('RemovePermission', function(awid, node) return CorePermissions.RevokePermission(awid, node) end)
 
---- Scheduler
-function ScheduleOnce(delay, cb, label) return CoreScheduler.Once(delay, cb, label) end
-function ScheduleRepeat(interval, cb, label) return CoreScheduler.Repeat(interval, cb, label) end
-function CancelSchedule(id) return CoreScheduler.Cancel(id) end
+-- Scheduler
+exports('ScheduleOnce', function(delay, cb, label) return CoreScheduler.Once(delay, cb, label) end)
+exports('ScheduleRepeat', function(interval, cb, label) return CoreScheduler.Repeat(interval, cb, label) end)
+exports('CancelSchedule', function(id) return CoreScheduler.Cancel(id) end)
 
---- Callbacks
-function RegisterCallback(name, handler) return CoreCallbacks.Register(name, handler) end
+-- Callbacks
+exports('RegisterCallback', function(name, handler) return CoreCallbacks.Register(name, handler) end)
 
---- Commands
-function RegisterCommand(name, opts) return CoreCommands.Register(name, opts) end
+-- Commands (NOT RegisterCommand — that would shadow FiveM native)
+exports('RegisterCommand', function(name, opts) return CoreCommands.Register(name, opts) end)
 
---- Data (Database table proxy)
-function DataFind(table, where) return CoreDatabase.Table(table):Find(where) end
-function DataFindAll(table, where) return CoreDatabase.Table(table):FindAll(where) end
-function DataInsert(table, data) return CoreDatabase.Table(table):Insert(data) end
-function DataUpdate(table, where, data) return CoreDatabase.Table(table):Update(where, data) end
-function DataDelete(table, where) return CoreDatabase.Table(table):Delete(where) end
-function DataIncrement(table, where, col, amt) return CoreDatabase.Table(table):Increment(where, col, amt) end
+-- Data (Database table proxy)
+exports('DataFind', function(tbl, where) return CoreDatabase.Table(tbl):Find(where) end)
+exports('DataFindAll', function(tbl, where) return CoreDatabase.Table(tbl):FindAll(where) end)
+exports('DataInsert', function(tbl, data) return CoreDatabase.Table(tbl):Insert(data) end)
+exports('DataUpdate', function(tbl, where, data) return CoreDatabase.Table(tbl):Update(where, data) end)
+exports('DataDelete', function(tbl, where) return CoreDatabase.Table(tbl):Delete(where) end)
+exports('DataIncrement', function(tbl, where, col, amt) return CoreDatabase.Table(tbl):Increment(where, col, amt) end)
 
---- UI
-function UISetState(serverId, key, val) return CoreState.SetClient(serverId, key, val) end
-function UINotify(serverId, msg) TriggerClientEvent(AW.EVENT.UI_UPDATE, serverId, { notify = msg }) end
+-- UI
+exports('UISetState', function(serverId, key, val) return CoreState.SetClient(serverId, key, val) end)
+exports('UINotify', function(serverId, msg) TriggerClientEvent(AW.EVENT.UI_UPDATE, serverId, { notify = msg }) end)
 
---- Log
-function LogInfo(src, msg, ...) return CoreLogger.Info(src, msg, ...) end
-function LogWarn(src, msg, ...) return CoreLogger.Warn(src, msg, ...) end
-function LogError(src, msg, ...) return CoreLogger.Error(src, msg, ...) end
-function LogDebug(src, msg, ...) return CoreLogger.Debug(src, msg, ...) end
+-- Log
+exports('LogInfo', function(src, msg, ...) return CoreLogger.Info(src, msg, ...) end)
+exports('LogWarn', function(src, msg, ...) return CoreLogger.Warn(src, msg, ...) end)
+exports('LogError', function(src, msg, ...) return CoreLogger.Error(src, msg, ...) end)
+exports('LogDebug', function(src, msg, ...) return CoreLogger.Debug(src, msg, ...) end)
 
---- Validator
-function Validate(schema, data) return CoreValidator.Validate(schema, data) end
+-- Validator
+exports('Validate', function(schema, data) return CoreValidator.Validate(schema, data) end)
 
---- HTTP
-function RegisterRoute(method, path, handler) return CoreHttpRouter.Route(method, path, handler) end
+-- HTTP
+exports('RegisterRoute', function(method, path, handler) return CoreHttpRouter.Route(method, path, handler) end)
 
---- Utility
-function GenerateId(prefix, length) return Utils.GenerateId(prefix, length) end
+-- Utility
+exports('GenerateId', function(prefix, length) return Utils.GenerateId(prefix, length) end)
 
 -- ============================================================
 -- BOOT TRIGGER
