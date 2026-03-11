@@ -3,11 +3,48 @@ import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 
 export function MusicPlayer() {
-    const { musicPlaying, musicVolume, toggleMusic, setMusicVolume } = useStore()
+    const { musicPlaying, musicVolume, toggleMusic, setMusicVolume, config } = useStore()
     const audioRef = useRef<HTMLAudioElement | null>(null)
 
+    // Play actual audio file if musicUrl is set
     useEffect(() => {
-        // Create ambient audio (white noise generator as placeholder)
+        if (!config.musicUrl) return
+        const audio = new Audio(config.musicUrl)
+        audio.loop = true
+        audio.volume = musicVolume
+        audioRef.current = audio
+
+        if (musicPlaying) {
+            audio.play().catch(() => {})
+        }
+
+        return () => {
+            audio.pause()
+            audio.src = ''
+            audioRef.current = null
+        }
+    }, [config.musicUrl])
+
+    // Sync play/pause state
+    useEffect(() => {
+        const audio = audioRef.current
+        if (!audio) return
+        if (musicPlaying) {
+            audio.play().catch(() => {})
+        } else {
+            audio.pause()
+        }
+    }, [musicPlaying])
+
+    // Sync volume
+    useEffect(() => {
+        const audio = audioRef.current
+        if (audio) audio.volume = musicVolume
+    }, [musicVolume])
+
+    // Fallback ambient tone when no musicUrl
+    useEffect(() => {
+        if (config.musicUrl) return
         const ctx = new AudioContext()
         const oscillator = ctx.createOscillator()
         const gain = ctx.createGain()
@@ -40,7 +77,7 @@ export function MusicPlayer() {
             oscillator.stop()
             ctx.close()
         }
-    }, [])
+    }, [config.musicUrl])
 
     return (
         <motion.div

@@ -11,6 +11,7 @@ import { PlayerStats } from './components/PlayerStats'
 import { ProgressBar } from './components/ProgressBar'
 import { ServerInfo } from './components/ServerInfo'
 import { Tips } from './components/Tips'
+import { VideoBackground } from './components/VideoBackground'
 import { useStore } from './store'
 
 export default function App() {
@@ -86,6 +87,7 @@ export default function App() {
                     transition={{ duration: 2, ease: 'easeInOut' }}
                 >
                     {/* Background layers */}
+                    <VideoBackground />
                     {config.showParticles && <ParticleBackground />}
                     <div className="scan-overlay" />
                     <div className="vignette" />

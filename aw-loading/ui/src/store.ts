@@ -61,6 +61,8 @@ export interface LoadingScreenConfig {
     showTips: boolean
     musicEnabled: boolean
     musicVolume: number
+    musicUrl: string
+    backgroundVideo: string
 }
 
 interface LoadingState {
@@ -157,6 +159,8 @@ const DEFAULT_CONFIG: LoadingScreenConfig = {
     showTips: true,
     musicEnabled: true,
     musicVolume: 0.3,
+    musicUrl: '',
+    backgroundVideo: '',
 }
 
 const PHASES = [
